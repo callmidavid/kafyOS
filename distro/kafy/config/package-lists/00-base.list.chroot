@@ -31,3 +31,4 @@ firmware-linux-nonfree
 firmware-misc-nonfree
 intel-microcode
 amd64-microcode
+linux-image-amd64

@@ -6,18 +6,19 @@ has_lb_option() {
 }
 
 set -- noauto \
+  --architectures amd64 \
   --mode debian \
   --distribution bookworm \
   --archive-areas "main contrib non-free non-free-firmware" \
   --binary-image iso-hybrid \
-  --debian-installer live \
-  --debian-installer-gui true \
+  --debian-installer false \
   --firmware-binary false \
   --firmware-chroot false \
   --iso-application "Kafy OS" \
   --iso-publisher "Kafy Project" \
   --iso-volume "KAFY_OS" \
-  --linux-flavours amd64 \
+  --linux-packages "none" \
+  --linux-flavours "" \
   --memtest none
 
 if has_lb_option "--security"; then
