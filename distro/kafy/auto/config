@@ -17,8 +17,8 @@ set -- noauto \
   --iso-application "Kafy OS" \
   --iso-publisher "Kafy Project" \
   --iso-volume "KAFY_OS" \
-  --linux-packages "none" \
-  --linux-flavours "" \
+  --linux-packages "linux-image" \
+  --linux-flavours "amd64" \
   --memtest none
 
 if has_lb_option "--security"; then
