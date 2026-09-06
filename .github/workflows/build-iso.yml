@@ -54,17 +54,39 @@ jobs:
             grub-efi-amd64-bin \
             grub-pc-bin
 
-      - name: Prepare Syslinux Host Compatibility
+      - name: Prepare Syslinux Host Compatibility and Bootloader Binaries
         run: |
+          mkdir -p distro/kafy/config/bootloaders/isolinux
+          mkdir -p distro/kafy/config/includes.chroot/usr/lib/syslinux
+
+          # Locate binaries from Ubuntu/Debian host packages
+          ISOLINUX_BIN=$(find /usr -name isolinux.bin 2>/dev/null | grep -v "/live/build" | head -n 1)
+          VESAMENU_C32=$(find /usr -name vesamenu.c32 2>/dev/null | grep -v "/live/build" | head -n 1)
+          LDLINUX_C32=$(find /usr -name ldlinux.c32 2>/dev/null | head -n 1)
+          LIBUTIL_C32=$(find /usr -name libutil.c32 2>/dev/null | head -n 1)
+          LIBCOM32_C32=$(find /usr -name libcom32.c32 2>/dev/null | head -n 1)
+
+          echo "Found isolinux.bin: $ISOLINUX_BIN"
+          echo "Found vesamenu.c32: $VESAMENU_C32"
+
+          # Copy into custom config/bootloaders/isolinux
+          cp -f "$ISOLINUX_BIN" distro/kafy/config/bootloaders/isolinux/isolinux.bin
+          cp -f "$VESAMENU_C32" distro/kafy/config/bootloaders/isolinux/vesamenu.c32
+          [ -n "$LDLINUX_C32" ] && cp -f "$LDLINUX_C32" distro/kafy/config/bootloaders/isolinux/ldlinux.c32 || true
+          [ -n "$LIBUTIL_C32" ] && cp -f "$LIBUTIL_C32" distro/kafy/config/bootloaders/isolinux/libutil.c32 || true
+          [ -n "$LIBCOM32_C32" ] && cp -f "$LIBCOM32_C32" distro/kafy/config/bootloaders/isolinux/libcom32.c32 || true
+
+          # Copy directly into config/includes.chroot/usr/lib/syslinux so chroot dereferencing succeeds
+          cp -f "$ISOLINUX_BIN" distro/kafy/config/includes.chroot/usr/lib/syslinux/isolinux.bin
+          cp -f "$VESAMENU_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/vesamenu.c32
+          [ -n "$LDLINUX_C32" ] && cp -f "$LDLINUX_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/ldlinux.c32 || true
+          [ -n "$LIBUTIL_C32" ] && cp -f "$LIBUTIL_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/libutil.c32 || true
+          [ -n "$LIBCOM32_C32" ] && cp -f "$LIBCOM32_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/libcom32.c32 || true
+
+          # Create host-level /usr/lib/syslinux symlinks
           sudo mkdir -p /usr/lib/syslinux
-          if [ -f /usr/lib/ISOLINUX/isolinux.bin ]; then
-            sudo ln -sf /usr/lib/ISOLINUX/isolinux.bin /usr/lib/syslinux/isolinux.bin
-          fi
-          if [ -d /usr/lib/syslinux/modules/bios ]; then
-            for c32 in /usr/lib/syslinux/modules/bios/*.c32; do
-              [ -f "$c32" ] && sudo ln -sf "$c32" "/usr/lib/syslinux/$(basename "$c32")"
-            done
-          fi
+          sudo cp -f "$ISOLINUX_BIN" /usr/lib/syslinux/isolinux.bin
+          sudo cp -f "$VESAMENU_C32" /usr/lib/syslinux/vesamenu.c32
 
       - name: Verify Build Tools
         run: |

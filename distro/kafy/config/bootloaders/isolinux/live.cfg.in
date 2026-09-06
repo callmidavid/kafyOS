@@ -1,0 +1,11 @@
+label live-@FLAVOUR@
+	menu label ^Kafy OS Live
+	menu default
+	kernel @KERNEL@
+	append initrd=@INITRD@ boot=live components quiet splash @LB_BOOTAPPEND_LIVE@
+
+label live-@FLAVOUR@-failsafe
+	menu label ^Kafy OS Live (Failsafe Mode)
+	kernel @KERNEL@
+	append initrd=@INITRD@ boot=live components memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal @LB_BOOTAPPEND_LIVE@ @LB_BOOTAPPEND_FAILSAFE@
+
