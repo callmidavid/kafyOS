@@ -21,6 +21,7 @@ set -- noauto \
   --mirror-chroot-security "http://deb.debian.org/debian-security" \
   --mirror-binary-security "http://deb.debian.org/debian-security" \
   --binary-image iso-hybrid \
+  --bootloader syslinux \
   --debian-installer false \
   --firmware-binary false \
   --firmware-chroot false \
@@ -33,12 +34,6 @@ set -- noauto \
 
 if has_lb_option "--security"; then
   set -- "$@" --security false
-fi
-
-if has_lb_option "--bootloaders"; then
-  set -- "$@" --bootloaders "syslinux,grub-efi"
-elif has_lb_option "--bootloader"; then
-  set -- "$@" --bootloader syslinux
 fi
 
 if has_lb_option "--image-name"; then

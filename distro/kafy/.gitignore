@@ -10,3 +10,10 @@ local/
 *.files
 *.packages
 *.zsync
+
+# Auto-generated config state from lb config
+config/binary
+config/bootstrap
+config/chroot
+config/common
+config/source

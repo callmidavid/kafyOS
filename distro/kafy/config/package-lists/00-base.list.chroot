@@ -32,6 +32,8 @@ apt-transport-https
 software-properties-common
 pciutils
 usbutils
+syslinux
+syslinux-common
 syslinux-utils
 isolinux
 genisoimage
