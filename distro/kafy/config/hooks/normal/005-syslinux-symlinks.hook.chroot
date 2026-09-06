@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+# Debian Bookworm moved isolinux.bin and syslinux c32 modules to subdirectories.
+# Live-build's isolinux bootloader template expects them under /usr/lib/syslinux/.
+# Create compatibility symlinks so live-build can dereference them during binary stage.
+mkdir -p /usr/lib/syslinux
+
+# Link isolinux.bin
+if [ -f /usr/lib/ISOLINUX/isolinux.bin ]; then
+  ln -sf /usr/lib/ISOLINUX/isolinux.bin /usr/lib/syslinux/isolinux.bin
+fi
+
+# Link all BIOS c32 modules (vesamenu.c32, ldlinux.c32, libutil.c32, etc.)
+if [ -d /usr/lib/syslinux/modules/bios ]; then
+  for c32 in /usr/lib/syslinux/modules/bios/*.c32; do
+    if [ -f "$c32" ]; then
+      ln -sf "$c32" "/usr/lib/syslinux/$(basename "$c32")"
+    fi
+  done
+fi
+

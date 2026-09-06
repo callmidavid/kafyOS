@@ -38,6 +38,7 @@ syslinux-utils
 isolinux
 genisoimage
 xorriso
+librsvg2-bin
 firmware-linux
 firmware-linux-free
 firmware-linux-nonfree
