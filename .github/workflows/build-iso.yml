@@ -1,0 +1,90 @@
+name: Build Kafy OS ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "distro/**"
+      - ".github/workflows/build-iso.yml"
+  pull_request:
+    paths:
+      - "distro/**"
+
+jobs:
+  build-iso:
+    name: Build Live ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          echo "Initial disk space:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            live-build \
+            live-config \
+            live-boot \
+            debootstrap \
+            xorriso \
+            squashfs-tools \
+            isolinux \
+            syslinux-common
+
+      - name: Verify Build Tools
+        run: |
+          cd distro/kafy
+          ./check-host
+
+      - name: Configure & Build ISO
+        run: |
+          cd distro/kafy
+          sudo lb clean --purge
+          sudo ./auto/config
+          sudo lb build
+
+      - name: Locate and Checksum ISO
+        id: prepare_artifact
+        run: |
+          cd distro/kafy
+          # Standardize ISO name
+          ISO_FILE=$(ls *.iso 2>/dev/null | head -n 1)
+          if [ -z "$ISO_FILE" ]; then
+            echo "::error::No ISO file generated!"
+            exit 1
+          fi
+
+          if [ "$ISO_FILE" != "kafy-os.iso" ]; then
+            mv "$ISO_FILE" kafy-os.iso
+          fi
+
+          sha256sum kafy-os.iso > kafy-os.iso.sha256
+          echo "ISO size:"
+          ls -lh kafy-os.iso
+          cat kafy-os.iso.sha256
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafy-os-amd64-iso
+          path: |
+            distro/kafy/kafy-os.iso
+            distro/kafy/kafy-os.iso.sha256
+          retention-days: 14
+          compression-level: 0
