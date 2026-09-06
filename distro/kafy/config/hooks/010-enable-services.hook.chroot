@@ -1,9 +1,7 @@
 #!/bin/sh
-set -eu
+set -u
 
-systemctl enable NetworkManager.service
-systemctl enable bluetooth.service
-systemctl enable cups.service
-systemctl enable sddm.service
-systemctl enable power-profiles-daemon.service
-systemctl enable fstrim.timer
+# Safely enable systemd services and timers in chroot
+for unit in NetworkManager.service bluetooth.service cups.service sddm.service power-profiles-daemon.service fstrim.timer; do
+  systemctl enable "$unit" 2>/dev/null || systemctl --root=/ enable "$unit" 2>/dev/null || true
+done
