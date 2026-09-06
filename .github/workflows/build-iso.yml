@@ -56,10 +56,22 @@ jobs:
 
       - name: Patch Ubuntu live-build gfxboot bug
         run: |
-          # Ubuntu's live-build fork unconditionally redirects < ${_TARGET}/bootlogo
-          # Wrap it with an existence check so non-Ubuntu/pure Debian builds don't fail
-          sudo sed -i 's|(cd "$tmpdir" && cpio -i) < ${_TARGET}/bootlogo|[ -e "${_TARGET}/bootlogo" ] \&\& (cd "$tmpdir" \&\& cpio -i) < ${_TARGET}/bootlogo || true|' /usr/lib/live/build/lb_binary_syslinux
-          sudo sed -i 's|(cd "$tmpdir" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo|[ -e "${_TARGET}/bootlogo" ] \&\& (cd "$tmpdir" \&\& ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo || true|' /usr/lib/live/build/lb_binary_syslinux
+          sudo python3 -c '
+          path = "/usr/lib/live/build/lb_binary_syslinux"
+          with open(path, "r") as f:
+              text = f.read()
+
+          old_1 = "(cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo"
+          new_1 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo || true"
+
+          old_2 = "(cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo"
+          new_2 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo || true"
+
+          text = text.replace(old_1, new_1).replace(old_2, new_2)
+          with open(path, "w") as f:
+              f.write(text)
+          print("Successfully patched lb_binary_syslinux")
+          '
 
       - name: Prepare Syslinux Host Compatibility and Bootloader Binaries
         run: |
