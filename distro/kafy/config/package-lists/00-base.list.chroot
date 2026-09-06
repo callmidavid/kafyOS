@@ -1,5 +1,10 @@
+live-boot
+live-config
+live-config-systemd
+user-setup
 sudo
 systemd
+systemd-sysv
 systemd-timesyncd
 dbus
 network-manager
@@ -25,6 +30,8 @@ wget
 gnupg
 apt-transport-https
 software-properties-common
+pciutils
+usbutils
 firmware-linux
 firmware-linux-free
 firmware-linux-nonfree
