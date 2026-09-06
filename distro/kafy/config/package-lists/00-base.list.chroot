@@ -32,6 +32,10 @@ apt-transport-https
 software-properties-common
 pciutils
 usbutils
+syslinux-utils
+isolinux
+genisoimage
+xorriso
 firmware-linux
 firmware-linux-free
 firmware-linux-nonfree
