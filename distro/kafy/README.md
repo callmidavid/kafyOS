@@ -4,44 +4,50 @@ This directory is the first real Kafy OS build profile. It uses Debian live-buil
 
 ## Files
 
+- `build.sh`: One-command automated local build script.
+- `check-host`: Verifies required build tools on the host system.
 - `auto/config`: live-build image configuration.
 - `config/package-lists/*.list.chroot`: packages installed into the OS.
 - `config/includes.chroot/`: files copied into the target filesystem.
-- `config/hooks/normal/`: build hooks run inside the target chroot.
+- `config/hooks/*.chroot`: build hooks run inside the target chroot.
+- `config/bootloaders/isolinux/`: custom hybrid bootloader templates.
 - `config/archives/`: extra apt source definitions.
 
-## Build
+## Local Build Instructions
+
+### 1. Install Host Dependencies
+
+On Debian or Ubuntu hosts:
 
 ```sh
-sudo apt install live-build live-config live-boot debootstrap xorriso squashfs-tools
-./check-host
-sudo lb clean
-sudo ./auto/config
-sudo lb build
+sudo apt update
+sudo apt install -y live-build live-config live-boot debootstrap xorriso squashfs-tools \
+  isolinux syslinux syslinux-common syslinux-utils mtools dosfstools librsvg2-bin \
+  grub-efi-amd64-bin grub-pc-bin
 ```
 
-`lb` is the live-build command. If you see `lb: not found`, the build host is missing `live-build`.
+### 2. Run the Build
 
-If `lb config` reports an unrecognized option, the installed live-build version is different from the one documented upstream. `auto/config` keeps optional flags version-aware, but run `lb config --help` to inspect what your host supports.
+Run the automated build script:
 
-If apt fails on `http://security.debian.org bookworm/updates`, clean and rebuild. Older live-build versions generate that obsolete suite for Bookworm, so this profile disables live-build's generated security entry and adds the correct `bookworm-security` archive manually.
+```sh
+cd distro/kafy
+./build.sh
+```
 
-If the build fails while downloading `dists/bookworm/Contents-amd64.gz`, clean and rebuild. Older live-build versions use that obsolete path for firmware auto-discovery; Kafy disables that behavior and installs firmware packages explicitly.
+The script will automatically:
 
-## How This Directory Becomes An OS
+1. Verify host dependencies via `./check-host`.
+2. Apply the compatibility fix for Ubuntu's `live-build` gfxboot bug.
+3. Prepare bootloader binaries (`isolinux.bin`, `vesamenu.c32`, etc.).
+4. Safely unmount any stale chroot mounts and clean previous build files.
+5. Configure `live-build` and compile the bootable ISO.
+6. Generate `kafy-os.iso` and `kafy-os.iso.sha256`.
 
-`auto/config` tells live-build what kind of Debian image to create.
+## Cloud Build (GitHub Actions)
 
-`config/package-lists/*.list.chroot` are installed into the target OS.
+You can also trigger a cloud build anytime:
 
-`config/includes.chroot/` is copied directly into the target OS filesystem. For example, a file at `config/includes.chroot/usr/share/kafy/product.json` becomes `/usr/share/kafy/product.json` inside Kafy OS.
-
-`config/hooks/normal/*.hook.chroot` run inside the target OS during image creation. We use hooks to enable services, add Flathub, set gaming defaults, and apply branding.
-
-When `sudo lb build` finishes, the output is a bootable ISO.
-
-## First Image Strategy
-
-The first Kafy ISO uses Debian stable plus KDE Plasma Wayland. That gives us a real bootable OS, a strong Wayland desktop, and enough polish to test the distro experience while Kafy-specific shell, greeter, settings, and compositor pieces are designed separately.
-
-Smithay remains the long-term compositor direction. It should start after the distro image and session defaults are working, because compositor work is deep infrastructure and will slow the project down if it comes first.
+1. Go to your repository on GitHub -> **Actions** tab.
+2. Select **Build Kafy OS ISO** -> **Run workflow**.
+3. Download the finished ISO directly from GitHub Actions artifacts.
