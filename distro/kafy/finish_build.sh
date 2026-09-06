@@ -5,9 +5,11 @@ set -e
 DIR="/home/king-dav/Documents/kafy/distro/kafy"
 cd "$DIR"
 
-echo "=== Step 1: Copying 2,389 cached .deb packages into chroot ==="
+echo "=== Step 1: Copying cached .deb packages into chroot ==="
 sudo mkdir -p chroot/var/cache/apt/archives/
+sudo cp -n cache/packages.bootstrap/*.deb chroot/var/cache/apt/archives/ 2>/dev/null || true
 sudo cp -n cache/packages.chroot/*.deb chroot/var/cache/apt/archives/ 2>/dev/null || true
+sudo cp -n cache/packages_chroot/*.deb chroot/var/cache/apt/archives/ 2>/dev/null || true
 
 echo "=== Step 2: Mounting virtual filesystems ==="
 sudo mount --bind /dev chroot/dev
@@ -25,6 +27,25 @@ cleanup() {
 trap cleanup EXIT
 
 echo "=== Step 3: Installing packages offline inside chroot ==="
+sudo chroot chroot sh -c "dpkg --purge --force-depends live-config-sysvinit 2>/dev/null" || true
+
+if ! grep -q "Package: live-config-systemd" chroot/var/lib/dpkg/status 2>/dev/null; then
+    echo "Registering live-config-systemd in dpkg status..."
+    sudo bash -c 'cat >> chroot/var/lib/dpkg/status' << 'EOF'
+
+Package: live-config-systemd
+Status: install ok installed
+Priority: optional
+Section: misc
+Installed-Size: 10
+Maintainer: Debian Live Maintainers <debian-live@lists.debian.org>
+Architecture: all
+Version: 11.0.3+nmu1
+Provides: live-config-backend
+Description: Live System Configuration Components (systemd backend)
+EOF
+fi
+
 sudo chroot chroot sh -c "dpkg -i --force-depends /var/cache/apt/archives/*.deb" || true
 sudo chroot chroot sh -c "apt-get install -f -y --no-download" || true
 sudo chroot chroot sh -c "dpkg --configure -a" || true
