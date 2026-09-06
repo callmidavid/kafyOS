@@ -45,7 +45,13 @@ jobs:
             xorriso \
             squashfs-tools \
             isolinux \
-            syslinux-common
+            syslinux \
+            syslinux-common \
+            syslinux-utils \
+            mtools \
+            dosfstools \
+            grub-efi-amd64-bin \
+            grub-pc-bin
 
       - name: Verify Build Tools
         run: |
