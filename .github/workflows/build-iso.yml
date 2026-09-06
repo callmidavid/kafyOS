@@ -54,6 +54,13 @@ jobs:
             grub-efi-amd64-bin \
             grub-pc-bin
 
+      - name: Patch Ubuntu live-build gfxboot bug
+        run: |
+          # Ubuntu's live-build fork unconditionally redirects < ${_TARGET}/bootlogo
+          # Wrap it with an existence check so non-Ubuntu/pure Debian builds don't fail
+          sudo sed -i 's|(cd "$tmpdir" && cpio -i) < ${_TARGET}/bootlogo|[ -e "${_TARGET}/bootlogo" ] \&\& (cd "$tmpdir" \&\& cpio -i) < ${_TARGET}/bootlogo || true|' /usr/lib/live/build/lb_binary_syslinux
+          sudo sed -i 's|(cd "$tmpdir" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo|[ -e "${_TARGET}/bootlogo" ] \&\& (cd "$tmpdir" \&\& ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo || true|' /usr/lib/live/build/lb_binary_syslinux
+
       - name: Prepare Syslinux Host Compatibility and Bootloader Binaries
         run: |
           mkdir -p distro/kafy/config/bootloaders/isolinux
