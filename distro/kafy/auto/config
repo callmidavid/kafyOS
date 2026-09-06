@@ -36,9 +36,9 @@ if has_lb_option "--security"; then
 fi
 
 if has_lb_option "--bootloaders"; then
-  set -- "$@" --bootloaders "grub-efi grub-pc"
+  set -- "$@" --bootloaders "syslinux,grub-efi"
 elif has_lb_option "--bootloader"; then
-  set -- "$@" --bootloader grub-efi
+  set -- "$@" --bootloader syslinux
 fi
 
 if has_lb_option "--image-name"; then
