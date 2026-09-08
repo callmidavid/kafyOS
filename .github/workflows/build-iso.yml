@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Free Disk Space
         run: |
@@ -130,11 +130,10 @@ jobs:
           cat kafy-os.iso.sha256
 
       - name: Upload ISO Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: kafy-os-amd64-iso
           path: |
             distro/kafy/kafy-os.iso
             distro/kafy/kafy-os.iso.sha256
           retention-days: 14
-          compression-level: 0
