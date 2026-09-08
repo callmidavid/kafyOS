@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+# When Debian releases security updates, multiple kernel versions can be present in /boot.
+# live-build's binary_syslinux expects exactly one kernel per architecture flavour.
+# Prune older kernels so only the latest installed kernel remains in /boot.
+LATEST_VMLINUZ=$(ls -v /boot/vmlinuz-* 2>/dev/null | tail -n 1 || true)
+if [ -n "$LATEST_VMLINUZ" ]; then
+  for v in /boot/vmlinuz-*; do
+    if [ "$v" != "$LATEST_VMLINUZ" ]; then
+      old_ver=$(basename "$v" | sed 's/^vmlinuz-//')
+      echo "Pruning older kernel version: $old_ver"
+      rm -f "/boot/vmlinuz-$old_ver" "/boot/initrd.img-$old_ver" "/boot/config-$old_ver" "/boot/System.map-$old_ver" || true
+    fi
+  done
+fi
+

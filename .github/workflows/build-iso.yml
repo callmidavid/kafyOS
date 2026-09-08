@@ -2,16 +2,6 @@ name: Build Kafy OS ISO
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - "distro/**"
-      - ".github/workflows/build-iso.yml"
-  pull_request:
-    paths:
-      - "distro/**"
 
 jobs:
   build-iso:

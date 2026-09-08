@@ -13,25 +13,28 @@ echo "=========================================="
 
 # 2. Patch Ubuntu live-build gfxboot bug if present on host
 if [ -f /usr/lib/live/build/lb_binary_syslinux ]; then
-  if grep -q '(cd "$tmpdir" && cpio -i) < ${_TARGET}/bootlogo' /usr/lib/live/build/lb_binary_syslinux; then
-    echo "Applying compatibility patch to host live-build..."
-    sudo python3 -c '
+  echo "Ensuring live-build compatibility patches are applied..."
+  sudo python3 -c '
 path = "/usr/lib/live/build/lb_binary_syslinux"
 with open(path, "r") as f:
     text = f.read()
 
+# 1. Patch bootlogo existence check
 old_1 = "(cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo"
 new_1 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo || true"
 
 old_2 = "(cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo"
 new_2 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo || true"
 
-text = text.replace(old_1, new_1).replace(old_2, new_2)
+# 2. Patch kernel mv in case security updates install multiple kernel versions
+old_k = "mv binary/live/vmlinuz-* binary/live/vmlinuz"
+new_k = "latest_vmlinuz=$(ls -v binary/live/vmlinuz-* 2>/dev/null | tail -n 1); [ -n \"$latest_vmlinuz\" ] && mv \"$latest_vmlinuz\" binary/live/vmlinuz || true"
+
+text = text.replace(old_1, new_1).replace(old_2, new_2).replace(old_k, new_k)
 with open(path, "w") as f:
     f.write(text)
-print("Host live-build patched successfully.")
+print("Host live-build patches verified.")
 '
-  fi
 fi
 
 # 3. Prepare bootloader binaries
@@ -59,13 +62,13 @@ if [ -n "$ISOLINUX_BIN" ] && [ -n "$VESAMENU_C32" ]; then
   [ -n "$LIBCOM32_C32" ] && cp -f "$LIBCOM32_C32" config/includes.chroot/usr/lib/syslinux/libcom32.c32 || true
 fi
 
-# 4. Clean previous build artifacts and unmount stale chroots
+# 4. Clean previous build artifacts and unmount stale chroots (preserving package cache)
 echo "Cleaning build environment..."
 sudo umount -lf chroot/dev/pts 2>/dev/null || true
 sudo umount -lf chroot/dev 2>/dev/null || true
 sudo umount -lf chroot/proc 2>/dev/null || true
 sudo umount -lf chroot/sys 2>/dev/null || true
-sudo lb clean --purge
+sudo lb clean --all
 
 # 5. Configure live-build
 echo "Configuring Kafy OS live-build..."

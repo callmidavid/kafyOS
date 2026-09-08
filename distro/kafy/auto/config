@@ -25,6 +25,7 @@ set -- noauto \
   --debian-installer false \
   --firmware-binary false \
   --firmware-chroot false \
+  --initsystem systemd \
   --iso-application "Kafy OS" \
   --iso-publisher "Kafy Project" \
   --iso-volume "KAFY_OS" \
