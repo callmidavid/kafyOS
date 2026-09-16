@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Welcome to Kafy
-Comment=Prepare the Kafy desktop for its first use
-Exec=/usr/local/bin/kafy-welcome
-OnlyShowIn=KDE;
-X-GNOME-Autostart-enabled=true
-X-KDE-autostart-after=panel

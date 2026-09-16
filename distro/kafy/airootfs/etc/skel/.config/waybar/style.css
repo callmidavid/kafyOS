@@ -1,0 +1,13 @@
+* {
+  border: none;
+  border-radius: 0;
+  font-family: "Noto Sans", sans-serif;
+  font-size: 13px;
+}
+window#waybar {
+  background: rgba(20, 20, 26, 0.82);
+  color: #f4f4f5;
+}
+#workspaces button { color: #b4b4c2; padding: 0 8px; }
+#workspaces button.active { color: #ffffff; border-bottom: 2px solid #818cf8; }
+#clock, #network, #bluetooth, #pulseaudio, #battery, #tray { padding: 0 9px; }

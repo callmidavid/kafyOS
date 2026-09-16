@@ -1,8 +1,8 @@
 # Kafy Arch ISO Profile
 
-This is the active Kafy OS image profile. It uses Arch Linux's `archiso` to build a current, small, bootable KDE Plasma Wayland desktop.
+This is the active Kafy OS image profile. It uses Arch Linux's `archiso` to build a current, small, bootable Hyprland desktop.
 
-Kafy deliberately keeps the desktop explicit rather than installing a broad desktop meta-package. The default session provides a macOS-inspired top bar and floating dock, a global menu, gentle motion settings, Flatpak/Discover, and hardware and gaming support without asking ordinary users to use the terminal.
+Kafy deliberately keeps the desktop explicit rather than installing a broad desktop meta-package. Step 1 provides a polished Hyprland baseline with a top bar, application launcher, gentle motion, and hardware support. The dock, control center, installer flow, and Kafy shell are added only after this image boots reliably.
 
 The previous Debian implementation is preserved at `../kafy-deb`.
 

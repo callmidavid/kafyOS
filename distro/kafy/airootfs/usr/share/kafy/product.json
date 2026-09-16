@@ -3,6 +3,6 @@
   "name": "Kafy OS",
   "base": "Arch Linux",
   "image_profile": "archiso",
-  "desktop_baseline": "KDE Plasma Wayland",
+  "desktop_baseline": "Hyprland",
   "goals": ["macOS-inspired calm", "lightweight defaults", "zero-setup everyday use"]
 }
