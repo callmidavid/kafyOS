@@ -17,7 +17,7 @@ This roadmap treats Kafy as a real Arch-based distribution first. The former Deb
 
 ## Phase 3: Installer
 
-- Start with Calamares, with Kafy-owned branding and safe defaults.
+- Build a Kafy-owned graphical installer with safe disk, user, and autologin-cleanup defaults.
 - Preconfigure the install path so users choose disk, user, timezone, keyboard, and privacy only.
 - Preserve the live session defaults in the installed system.
 

@@ -35,4 +35,4 @@ Do not run `pacman` directly on Ubuntu or Debian; it is Arch's package manager. 
 - `profiledef.sh`: ISO metadata, architecture, boot modes, and compression settings.
 - `pacman.conf`: Arch repositories used during the image build; `multilib` is enabled for Steam and 32-bit graphics support.
 
-The live image signs in automatically as `liveuser` so it opens straight to the desktop. The installer remains an explicit application; an installed system must create its own user and must not inherit the live-session autologin configuration.
+The live image signs in automatically as `liveuser` so it opens straight to the desktop. Step 1 is a live-session milestone; the Kafy graphical installer is intentionally not shipped until its user, disk, and autologin cleanup paths are implemented and tested.

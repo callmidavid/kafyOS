@@ -3,6 +3,7 @@ set -euo pipefail
 
 profile_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 output_dir="${1:-$profile_dir/out}"
+work_dir="$profile_dir/work"
 
 if ! command -v mkarchiso >/dev/null 2>&1; then
   if ! command -v docker >/dev/null 2>&1; then
@@ -16,16 +17,16 @@ if ! command -v mkarchiso >/dev/null 2>&1; then
     -v "$profile_dir:/profile:ro" \
     -v "$output_dir:/output" \
     archlinux:latest \
-    bash -lc 'pacman -Syu --noconfirm archiso && mkarchiso -v -w /output/work -o /output /profile'
+    bash -lc 'pacman -Syu --noconfirm archiso && mkarchiso -v -w /tmp/kafy-archiso-work -o /output /profile'
 else
   if [[ $EUID -ne 0 ]]; then
     echo "Run this builder as root on an Arch host: sudo ./build.sh [output-directory]" >&2
     exit 1
   fi
 
-  rm -rf "$output_dir/work"
+  rm -rf "$work_dir"
   mkdir -p "$output_dir"
-  mkarchiso -v -w "$output_dir/work" -o "$output_dir" "$profile_dir"
+  mkarchiso -v -w "$work_dir" -o "$output_dir" "$profile_dir"
 fi
 
 iso_file=$(find "$output_dir" -maxdepth 1 -name 'kafy-os-*.iso' -print -quit)
