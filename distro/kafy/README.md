@@ -8,7 +8,7 @@ The previous Debian implementation is preserved at `../kafy-deb`.
 
 ## Build locally
 
-Build on an Arch Linux or Arch-based host:
+On an Arch Linux or Arch-based host:
 
 ```sh
 sudo pacman -Syu --needed archiso
@@ -17,6 +17,16 @@ sudo ./build.sh
 ```
 
 The ISO and its SHA-256 checksum are written to `distro/kafy/out/`.
+
+On Ubuntu or Debian, install Docker and build through the included Arch container:
+
+```sh
+sudo apt update
+sudo apt install -y docker.io
+sudo ./build.sh
+```
+
+Do not run `pacman` directly on Ubuntu or Debian; it is Arch's package manager. The build script selects the Docker path automatically when `mkarchiso` is not installed.
 
 ## Profile layout
 
