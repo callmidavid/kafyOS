@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -eu
+
+# Plasma owns panel state per user. Applying the Look-and-Feel package once keeps
+# the system image clean while giving every new account Kafy's familiar structure.
+if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
+  plasma-apply-lookandfeel --apply org.kafy.desktop
+fi
+
+kwriteconfig6 --file kdeglobals --group KDE --key AnimationDurationFactor 0.85 2>/dev/null || true
+kwriteconfig6 --file kwinrc --group Plugins --key wobblywindowsEnabled false 2>/dev/null || true

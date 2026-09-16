@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v mkarchiso >/dev/null 2>&1; then
+  echo "Missing mkarchiso. Build on Arch Linux with: sudo pacman -S --needed archiso" >&2
+  exit 1
+fi
+
+echo "Kafy Arch ISO build host looks ready."

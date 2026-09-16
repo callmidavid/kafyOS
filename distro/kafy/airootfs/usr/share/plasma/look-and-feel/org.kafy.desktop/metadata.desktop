@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Kafy
+Comment=The Kafy desktop experience
+Type=ServiceType
+X-KDE-ServiceTypes=Plasma/LookAndFeel
+X-Plasma-API=5.0
+X-Plasma-MainScript=defaults

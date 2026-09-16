@@ -1,0 +1,8 @@
+{
+  "id": "kafy-os",
+  "name": "Kafy OS",
+  "base": "Arch Linux",
+  "image_profile": "archiso",
+  "desktop_baseline": "KDE Plasma Wayland",
+  "goals": ["macOS-inspired calm", "lightweight defaults", "zero-setup everyday use"]
+}

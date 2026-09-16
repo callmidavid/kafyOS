@@ -1,0 +1,8 @@
+NAME="Kafy OS"
+PRETTY_NAME="Kafy OS"
+ID=kafy
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;99;102;241"
+HOME_URL="https://github.com/kafy-os/kafy"
+SUPPORT_URL="https://github.com/kafy-os/kafy/issues"
