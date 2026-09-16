@@ -1,13 +1,13 @@
 # Kafy OS
 
-Kafy is a Debian-based desktop Linux distribution focused on a polished macOS-like experience, zero-setup defaults, and gaming readiness.
+Kafy is an Arch-based desktop Linux distribution focused on a polished macOS-like experience, zero-setup defaults, and gaming readiness.
 
-The current source of truth is the Debian live-build profile in `distro/kafy`. Older Rust desktop experiments in `crates/` are kept for reference only and are not part of the first OS image path.
+The current source of truth is the Arch `archiso` profile in `distro/kafy`. The former Debian live-build profile is preserved in `distro/kafy-deb` for reference. Older Rust desktop experiments are not part of the first OS image path.
 
 ## Build Direction
 
-- Base: Debian stable
-- Image system: Debian live-build
+- Base: Arch Linux
+- Image system: archiso
 - Desktop baseline: KDE Plasma Wayland while Kafy desktop components mature
 - Gaming baseline: Steam installer, Proton support, GameMode, MangoHud, Vulkan tooling, controller support, Wine/Lutris, and Flatpak-based gaming apps
 - App model: Flatpak and Flathub enabled by default
@@ -15,10 +15,10 @@ The current source of truth is the Debian live-build profile in `distro/kafy`. O
 
 ## Build An ISO
 
-Install build dependencies on a Debian host:
+Install build dependencies on an Arch host:
 
 ```sh
-sudo apt install live-build live-config live-boot debootstrap xorriso squashfs-tools
+sudo pacman -Syu --needed archiso
 ```
 
 Build:
@@ -26,9 +26,7 @@ Build:
 ```sh
 cd distro/kafy
 ./check-host
-sudo lb clean
-sudo ./auto/config
-sudo lb build
+sudo ./build.sh
 ```
 
 The generated ISO appears in `distro/kafy` when the build completes.
@@ -37,11 +35,11 @@ If `./auto/config` says `lb: not found`, install `live-build`. `lb` is not built
 
 ## How This Works
 
-Debian is made of `.deb` packages managed by `apt` and `dpkg`. A Debian-based distro like Kafy starts from Debian repositories, chooses packages, adds defaults, adds branding, and builds an installable/live image.
+Arch is made of packages managed by `pacman`. An Arch-based distro like Kafy starts from the Arch repositories, chooses packages, adds defaults and branding, then builds an installable/live image.
 
-`live-build` is Debian's image builder. It reads the files in `distro/kafy`, creates a temporary Debian filesystem, installs the package lists, copies our included files into that filesystem, runs our hooks, then compresses everything into a bootable ISO.
+`archiso` is Arch's image builder. It reads the files in `distro/kafy`, creates a temporary Arch filesystem, installs the package list, copies Kafy files into it, and compresses it into a bootable ISO.
 
-Read [docs/debian-live-build-explained.md](docs/debian-live-build-explained.md) for the full plain-English version.
+Read [distro/kafy/README.md](distro/kafy/README.md) for the profile layout and local build steps.
 
 ## Product Rule
 

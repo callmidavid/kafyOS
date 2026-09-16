@@ -2,138 +2,33 @@ name: Build Kafy OS ISO
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "distro/kafy/**"
+      - ".github/workflows/build-iso.yml"
 
 jobs:
   build-iso:
-    name: Build Live ISO
+    name: Build Arch ISO
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Free Disk Space
+      - name: Build Kafy Arch ISO
         run: |
-          echo "Initial disk space:"
-          df -h
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          echo "Disk space after cleanup:"
-          df -h
+          docker run --rm \
+            --privileged \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace/distro/kafy \
+            archlinux:latest \
+            bash -lc 'pacman -Syu --noconfirm archiso && ./build.sh /workspace/artifacts && chown -R $(id -u):$(id -g) /workspace/artifacts'
 
-      - name: Install Build Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            live-build \
-            live-config \
-            live-boot \
-            debootstrap \
-            xorriso \
-            squashfs-tools \
-            isolinux \
-            syslinux \
-            syslinux-common \
-            syslinux-utils \
-            mtools \
-            dosfstools \
-            librsvg2-bin \
-            grub-efi-amd64-bin \
-            grub-pc-bin
-
-      - name: Patch Ubuntu live-build gfxboot bug
-        run: |
-          sudo python3 -c '
-          path = "/usr/lib/live/build/lb_binary_syslinux"
-          with open(path, "r") as f:
-              text = f.read()
-
-          old_1 = "(cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo"
-          new_1 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && cpio -i) < ${_TARGET}/bootlogo || true"
-
-          old_2 = "(cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo"
-          new_2 = "[ -e \"${_TARGET}/bootlogo\" ] && (cd \"$tmpdir\" && ls -1 | cpio --quiet -o) > ${_TARGET}/bootlogo || true"
-
-          text = text.replace(old_1, new_1).replace(old_2, new_2)
-          with open(path, "w") as f:
-              f.write(text)
-          print("Successfully patched lb_binary_syslinux")
-          '
-
-      - name: Prepare Syslinux Host Compatibility and Bootloader Binaries
-        run: |
-          mkdir -p distro/kafy/config/bootloaders/isolinux
-          mkdir -p distro/kafy/config/includes.chroot/usr/lib/syslinux
-
-          # Locate binaries from Ubuntu/Debian host packages
-          ISOLINUX_BIN=$(find /usr -name isolinux.bin 2>/dev/null | grep -v "/live/build" | head -n 1)
-          VESAMENU_C32=$(find /usr -name vesamenu.c32 2>/dev/null | grep -v "/live/build" | head -n 1)
-          LDLINUX_C32=$(find /usr -name ldlinux.c32 2>/dev/null | head -n 1)
-          LIBUTIL_C32=$(find /usr -name libutil.c32 2>/dev/null | head -n 1)
-          LIBCOM32_C32=$(find /usr -name libcom32.c32 2>/dev/null | head -n 1)
-
-          echo "Found isolinux.bin: $ISOLINUX_BIN"
-          echo "Found vesamenu.c32: $VESAMENU_C32"
-
-          # Copy into custom config/bootloaders/isolinux
-          cp -f "$ISOLINUX_BIN" distro/kafy/config/bootloaders/isolinux/isolinux.bin
-          cp -f "$VESAMENU_C32" distro/kafy/config/bootloaders/isolinux/vesamenu.c32
-          [ -n "$LDLINUX_C32" ] && cp -f "$LDLINUX_C32" distro/kafy/config/bootloaders/isolinux/ldlinux.c32 || true
-          [ -n "$LIBUTIL_C32" ] && cp -f "$LIBUTIL_C32" distro/kafy/config/bootloaders/isolinux/libutil.c32 || true
-          [ -n "$LIBCOM32_C32" ] && cp -f "$LIBCOM32_C32" distro/kafy/config/bootloaders/isolinux/libcom32.c32 || true
-
-          # Copy directly into config/includes.chroot/usr/lib/syslinux so chroot dereferencing succeeds
-          cp -f "$ISOLINUX_BIN" distro/kafy/config/includes.chroot/usr/lib/syslinux/isolinux.bin
-          cp -f "$VESAMENU_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/vesamenu.c32
-          [ -n "$LDLINUX_C32" ] && cp -f "$LDLINUX_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/ldlinux.c32 || true
-          [ -n "$LIBUTIL_C32" ] && cp -f "$LIBUTIL_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/libutil.c32 || true
-          [ -n "$LIBCOM32_C32" ] && cp -f "$LIBCOM32_C32" distro/kafy/config/includes.chroot/usr/lib/syslinux/libcom32.c32 || true
-
-          # Create host-level /usr/lib/syslinux symlinks
-          sudo mkdir -p /usr/lib/syslinux
-          sudo cp -f "$ISOLINUX_BIN" /usr/lib/syslinux/isolinux.bin
-          sudo cp -f "$VESAMENU_C32" /usr/lib/syslinux/vesamenu.c32
-
-      - name: Verify Build Tools
-        run: |
-          cd distro/kafy
-          ./check-host
-
-      - name: Configure & Build ISO
-        run: |
-          cd distro/kafy
-          sudo lb clean --purge
-          sudo ./auto/config
-          sudo lb build
-
-      - name: Locate and Checksum ISO
-        id: prepare_artifact
-        run: |
-          cd distro/kafy
-          # Standardize ISO name
-          ISO_FILE=$(ls *.iso 2>/dev/null | head -n 1)
-          if [ -z "$ISO_FILE" ]; then
-            echo "::error::No ISO file generated!"
-            exit 1
-          fi
-
-          if [ "$ISO_FILE" != "kafy-os.iso" ]; then
-            mv "$ISO_FILE" kafy-os.iso
-          fi
-
-          sha256sum kafy-os.iso > kafy-os.iso.sha256
-          echo "ISO size:"
-          ls -lh kafy-os.iso
-          cat kafy-os.iso.sha256
-
-      - name: Upload ISO Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
         with:
-          name: kafy-os-amd64-iso
-          path: |
-            distro/kafy/kafy-os.iso
-            distro/kafy/kafy-os.iso.sha256
+          name: kafy-os-x86_64-iso
+          path: artifacts/*
           retention-days: 14

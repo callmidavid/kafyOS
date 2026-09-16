@@ -1,10 +1,10 @@
 # Kafy OS Roadmap
 
-This roadmap ignores the old prototype implementation and treats Kafy as a real Debian-based distribution first.
+This roadmap treats Kafy as a real Arch-based distribution first. The former Debian profile remains only as historical reference.
 
 ## Phase 1: Bootable ISO
 
-- Build the Debian live-build profile.
+- Build the Arch archiso profile.
 - Boot it in QEMU and on one real test machine.
 - Confirm graphics, Wi-Fi, Bluetooth, audio, suspend/resume, display scaling, Flatpak, Steam installer, Vulkan, and controllers.
 - Keep KDE Plasma Wayland as the temporary production desktop.
@@ -17,14 +17,14 @@ This roadmap ignores the old prototype implementation and treats Kafy as a real 
 
 ## Phase 3: Installer
 
-- Start with Debian Installer or Calamares.
+- Start with Calamares, with Kafy-owned branding and safe defaults.
 - Preconfigure the install path so users choose disk, user, timezone, keyboard, and privacy only.
 - Preserve the live session defaults in the installed system.
 
 ## Phase 4: Package And Update Infrastructure
 
-- Create a Kafy apt repository.
-- Package branding, defaults, first-boot, settings helpers, and future shell components as `.deb` packages.
+- Create a Kafy pacman repository.
+- Package branding, defaults, first-boot, settings helpers, and future shell components as Arch packages.
 - Add signed repository metadata and automated image builds.
 
 ## Phase 5: Kafy Desktop Components
