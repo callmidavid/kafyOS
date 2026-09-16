@@ -8,7 +8,7 @@ The current source of truth is the Arch `archiso` profile in `distro/kafy`. The 
 
 - Base: Arch Linux
 - Image system: archiso
-- Desktop baseline: KDE Plasma Wayland while Kafy desktop components mature
+- Desktop baseline: Hyprland while Kafy desktop components mature
 - Gaming baseline: Steam installer, Proton support, GameMode, MangoHud, Vulkan tooling, controller support, Wine/Lutris, and Flatpak-based gaming apps
 - App model: Flatpak and Flathub enabled by default
 - Future compositor: Smithay-based Wayland compositor when the Kafy shell is ready

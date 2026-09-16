@@ -6,7 +6,7 @@ Kafy is an Arch-based Linux distribution first. The old Rust desktop prototype i
 
 - Use Arch Linux as the distro base for a small image, current Wayland and gaming support, and explicit package choices.
 - Use archiso for the first bootable ISO.
-- Use KDE Plasma Wayland as the temporary production desktop while Kafy-specific components mature.
+- Use Hyprland as the temporary production desktop while Kafy-specific components mature.
 - Add a Kafy package repository for desktop components, gaming defaults, themes, and first-party tools; test updates before publishing them to users.
 - Prefer system defaults over post-install wizards: users should boot into a configured desktop, not a checklist.
 - Keep the base conservative, then layer fast-moving gaming components through curated repositories, Flatpak, or vendor channels.

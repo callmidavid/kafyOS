@@ -7,7 +7,7 @@ This roadmap treats Kafy as a real Arch-based distribution first. The former Deb
 - Build the Arch archiso profile.
 - Boot it in QEMU and on one real test machine.
 - Confirm graphics, Wi-Fi, Bluetooth, audio, suspend/resume, display scaling, Flatpak, Steam installer, Vulkan, and controllers.
-- Keep KDE Plasma Wayland as the temporary production desktop.
+- Boot into a minimal Hyprland session with networking, audio, wallpaper, launcher, and top bar.
 
 ## Phase 2: Kafy Defaults
 

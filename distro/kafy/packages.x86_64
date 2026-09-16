@@ -62,7 +62,6 @@ ffmpegthumbs
 print-manager
 cups
 avahi
-webkit2gtk
 
 # Gaming-ready, without turning the base desktop into a gaming distro.
 steam
@@ -76,8 +75,8 @@ wine
 winetricks
 gamescope
 
-# Live image installation and recovery
-calamares
+# Live image recovery. The graphical Kafy installer is a later, Kafy-owned
+# component; Calamares is not currently provided by Arch's official repos.
 efibootmgr
 os-prober
 grub
