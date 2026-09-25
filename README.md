@@ -5,9 +5,9 @@ Kafy is an Arch-based desktop Linux distribution focused on a polished macOS-lik
 ## Documentation
 
 - Read the [Kafy Manual](manual/README.md) to try the current live ISO and learn the desktop.
-- Read the [technical documentation](docs/README.md) to build, test, and contribute to Kafy.
+- Read the [technical documentation](docs/README.md) to contribute to Kafy.
 
-The current source of truth is the Arch `archiso` profile in `distro/kafy`. The former Debian live-build profile is preserved in `distro/kafy-deb` for reference. Older Rust desktop experiments are not part of the first OS image path.
+This repository is Kafy's product source: desktop configuration, assets, commands, installation logic, shell, and documentation. ISO construction is isolated in the sibling `kafy-iso` repository, following Omarchy's source/ISO separation. The former Debian live-build effort is retained only as historical documentation.
 
 ## Build Direction
 
@@ -18,33 +18,35 @@ The current source of truth is the Arch `archiso` profile in `distro/kafy`. The 
 - App model: Flatpak and Flathub enabled by default
 - Future compositor: Smithay-based Wayland compositor when the Kafy shell is ready
 
-## Build An ISO
+## Build an ISO
 
-Install build dependencies on an Arch host:
-
-```sh
-sudo pacman -Syu --needed archiso
-```
-
-Build:
+Clone Kafy beside its ISO builder, then build from the builder repository:
 
 ```sh
-cd distro/kafy
-./check-host
+cd ~/Documents/kafy-iso/archiso
 sudo ./build.sh
 ```
 
-The generated ISO appears in `distro/kafy` when the build completes.
+The builder reads `~/Documents/kafy` by default and writes the result to `~/Documents/kafy-iso/out/`. For another checkout, set `KAFY_SOURCE`:
 
-If `./auto/config` says `lb: not found`, install `live-build`. `lb` is not built into Debian or Ubuntu; it is the command installed by the `live-build` package.
+```sh
+sudo env KAFY_SOURCE=/path/to/kafy ./build.sh
+```
+
+Run its fast composition check first:
+
+```sh
+cd ~/Documents/kafy-iso
+./test/unit/profile-composition.sh
+```
 
 ## How This Works
 
 Arch is made of packages managed by `pacman`. An Arch-based distro like Kafy starts from the Arch repositories, chooses packages, adds defaults and branding, then builds an installable/live image.
 
-`archiso` is Arch's image builder. It reads the files in `distro/kafy`, creates a temporary Arch filesystem, installs the package list, copies Kafy files into it, and compresses it into a bootable ISO.
+`archiso` is Arch's image builder. The separate `kafy-iso` repository creates a temporary Arch filesystem, installs the package list, composes this repository's product sources into it, and compresses it into a bootable ISO.
 
-Read [distro/kafy/README.md](distro/kafy/README.md) for the profile layout and local build steps, then follow the [ISO build and test checklist](docs/iso-build-and-test.md) before calling an image ready.
+Read the [Kafy ISO builder guide](../kafy-iso/docs/iso-build-and-test.md) for build and VM-test requirements before calling an image ready.
 
 ## Product Rule
 

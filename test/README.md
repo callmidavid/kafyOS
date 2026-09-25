@@ -1,8 +1,8 @@
 # Kafy Tests
 
-- `unit/` contains fast tests for scripts, profile composition, package manifests, and command behavior.
+- `unit/` contains fast tests for Kafy commands and source behavior.
 - `acceptance/` contains disposable-VM tests for ISO boot, the Kafy shell, installation, and first boot.
 
 No visual or installer change is complete until it has a reproducible test or a recorded manual verification in `docs/first-iso-observations.md`.
 
-Run `./test/unit/profile-composition.sh` to verify that package and live-only overlays assemble into the Archiso profile before starting a full ISO build.
+The ISO composition test belongs to the builder: run `../kafy-iso/test/unit/profile-composition.sh` before starting a full ISO build.

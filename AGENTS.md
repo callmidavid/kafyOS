@@ -9,8 +9,9 @@
 - `bin/`: Kafy commands, diagnostics, and runtime helpers.
 - `install/`: live-session setup, installation, and installed-system provisioning.
 - `shell/`: Kafy-specific graphical shell.
-- `distro/kafy/`: Archiso assembly only.
 - `test/`: automated and VM acceptance tests.
+
+Archiso metadata, package manifests, boot configuration, and ISO CI live in the separate `kafy-iso` repository. Its `archiso/prepare-profile.sh` consumes this repository's `config/`, `default/`, `install/live/`, and `bin/kafy-doctor` at build time.
 
 ## Rules
 

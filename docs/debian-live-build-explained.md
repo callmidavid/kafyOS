@@ -58,7 +58,7 @@ sudo apt install live-build live-config live-boot debootstrap xorriso squashfs-t
 
 ## What Happens During A Build
 
-From `distro/kafy`, the flow is:
+In the retired Debian profile, the flow was:
 
 ```sh
 sudo ./auto/config
@@ -93,27 +93,27 @@ The same older live-build line also tries to auto-discover firmware by downloadi
 
 ## The Important Kafy Files
 
-`distro/kafy/auto/config`
+`auto/config`
 
 Defines the image shape. This is where we say "build Debian Bookworm as an ISO with firmware and installer support."
 
-`distro/kafy/config/package-lists/00-base.list.chroot`
+`config/package-lists/00-base.list.chroot`
 
 Core system packages: networking, audio, Bluetooth, printing, firmware, power management, certificates, and system basics.
 
-`distro/kafy/config/package-lists/10-desktop.list.chroot`
+`config/package-lists/10-desktop.list.chroot`
 
 Temporary production desktop. We use KDE Plasma Wayland first so Kafy becomes a real bootable OS before we build a custom compositor.
 
-`distro/kafy/config/package-lists/20-gaming.list.chroot`
+`config/package-lists/20-gaming.list.chroot`
 
 Gaming packages: Steam installer, GameMode, MangoHud, Vulkan tools, Mesa Vulkan drivers, Wine, Lutris, vkBasalt, and controller tools.
 
-`distro/kafy/config/package-lists/30-apps.list.chroot`
+`config/package-lists/30-apps.list.chroot`
 
 Default user apps and tools.
 
-`distro/kafy/config/includes.chroot/`
+`config/includes.chroot/`
 
 Files copied directly into Kafy OS. If a file is here:
 
@@ -127,7 +127,7 @@ then it appears inside the built OS here:
 /usr/share/kafy/product.json
 ```
 
-`distro/kafy/config/hooks/normal/`
+`config/hooks/normal/`
 
 Scripts that run while the OS image is being built. These are for setup tasks like enabling services, adding Flathub, setting gaming sysctl values, and applying branding.
 

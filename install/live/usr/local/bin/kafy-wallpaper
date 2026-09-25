@@ -1,0 +1,28 @@
+#!/bin/bash
+set -euo pipefail
+
+wallpaper=/usr/share/wallpapers/kafy/contents/images/1920x1080.png
+log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/kafy"
+log_file="$log_dir/hyprpaper.log"
+
+mkdir -p "$log_dir"
+
+if [[ ! -r "$wallpaper" ]]; then
+  printf 'Kafy wallpaper is missing or unreadable: %s\n' "$wallpaper" > "$log_file"
+  exit 1
+fi
+
+hyprpaper >>"$log_file" 2>&1 &
+hyprpaper_pid=$!
+
+for _ in {1..20}; do
+  if hyprctl hyprpaper preload "$wallpaper" >>"$log_file" 2>&1 && \
+    hyprctl hyprpaper wallpaper ",$wallpaper" >>"$log_file" 2>&1; then
+    wait "$hyprpaper_pid"
+    exit 0
+  fi
+  sleep 0.2
+done
+
+printf 'Kafy could not apply its wallpaper. See prior hyprpaper output.\n' >>"$log_file"
+wait "$hyprpaper_pid"
