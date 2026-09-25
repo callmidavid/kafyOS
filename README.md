@@ -2,6 +2,11 @@
 
 Kafy is an Arch-based desktop Linux distribution focused on a polished macOS-like experience, zero-setup defaults, and gaming readiness.
 
+## Documentation
+
+- Read the [Kafy Manual](manual/README.md) to try the current live ISO and learn the desktop.
+- Read the [technical documentation](docs/README.md) to build, test, and contribute to Kafy.
+
 The current source of truth is the Arch `archiso` profile in `distro/kafy`. The former Debian live-build profile is preserved in `distro/kafy-deb` for reference. Older Rust desktop experiments are not part of the first OS image path.
 
 ## Build Direction
@@ -39,7 +44,7 @@ Arch is made of packages managed by `pacman`. An Arch-based distro like Kafy sta
 
 `archiso` is Arch's image builder. It reads the files in `distro/kafy`, creates a temporary Arch filesystem, installs the package list, copies Kafy files into it, and compresses it into a bootable ISO.
 
-Read [distro/kafy/README.md](distro/kafy/README.md) for the profile layout and local build steps.
+Read [distro/kafy/README.md](distro/kafy/README.md) for the profile layout and local build steps, then follow the [ISO build and test checklist](docs/iso-build-and-test.md) before calling an image ready.
 
 ## Product Rule
 
