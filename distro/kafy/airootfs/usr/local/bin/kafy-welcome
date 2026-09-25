@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# First boot welcome trigger for live desktop
+set -eo pipefail
+
+DONE_FLAG="$HOME/.config/kafy-welcome-done"
+if [[ -f "$DONE_FLAG" ]]; then
+  exit 0
+fi
+
+# Launch foot running the welcome & installer flow
+foot --app-id "kafy-welcome" --title "Welcome to Kafy OS" -w 780x520 sudo /usr/local/bin/kafy-installer
+
+mkdir -p "$HOME/.config"
+touch "$DONE_FLAG"

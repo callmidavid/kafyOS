@@ -1,4 +1,30 @@
+# Rust build artifacts
 target/
+
+# Swap files
 *.swp
 *.swo
-*.lock
+
+# Lock files (keep Cargo.lock for binaries)
+# *.lock
+
+# Arch ISO build outputs and caches
+distro/kafy/out/
+distro/kafy/work/
+distro/kafy/cache/
+
+# Debian-based distro (historical reference only — not the active build path)
+distro/kafy-deb/chroot/
+distro/kafy-deb/binary/
+distro/kafy-deb/cache/
+distro/kafy-deb/local/
+
+# ISO and binary artifacts
+*.iso
+*.zsync
+*.zsync.xz
+*.sha256
+
+# OS generated
+.DS_Store
+Thumbs.db

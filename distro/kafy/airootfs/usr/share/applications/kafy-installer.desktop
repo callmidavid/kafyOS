@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Install Kafy OS
+GenericName=System Installer
+Comment=Install Kafy OS to your drive
+Exec=foot --title "Kafy OS Installer" sudo /usr/local/bin/kafy-installer
+Icon=system-software-install
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true

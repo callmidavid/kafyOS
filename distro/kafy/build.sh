@@ -11,11 +11,13 @@ if ! command -v mkarchiso >/dev/null 2>&1; then
     exit 1
   fi
 
-  mkdir -p "$output_dir"
+  mkdir -p "$output_dir" "$profile_dir/cache/pkg" "$profile_dir/cache/db"
   echo "mkarchiso is unavailable; building in an Arch Linux container."
   docker run --rm --privileged \
     -v "$profile_dir:/profile:ro" \
     -v "$output_dir:/output" \
+    -v "$profile_dir/cache/pkg:/var/cache/pacman/pkg" \
+    -v "$profile_dir/cache/db:/var/lib/pacman/sync" \
     archlinux:latest \
     bash -lc 'pacman -Syu --noconfirm archiso && mkarchiso -v -w /tmp/kafy-archiso-work -o /output /profile'
 else

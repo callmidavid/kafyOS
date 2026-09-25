@@ -85,6 +85,8 @@ archinstall
 # Useful support tools; never required for normal desktop use.
 git
 curl
+jq
+gum
 usbutils
 pciutils
 man-db

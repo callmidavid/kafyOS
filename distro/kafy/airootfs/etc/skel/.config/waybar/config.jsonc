@@ -1,14 +1,68 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 34,
-  "modules-left": ["hyprland/workspaces"],
+  "height": 38,
+  "margin-top": 6,
+  "margin-left": 12,
+  "margin-right": 12,
+  "modules-left": ["custom/logo", "hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
-  "modules-right": ["network", "bluetooth", "pulseaudio", "battery", "tray"],
-  "hyprland/workspaces": { "format": "{name}" },
-  "clock": { "format": "{:%a, %b %d  %H:%M}" },
-  "network": { "format-wifi": "󰤨", "format-ethernet": "󰈀", "format-disconnected": "󰤭" },
-  "bluetooth": { "format": "", "format-disabled": "" },
-  "pulseaudio": { "format": "{icon}", "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] } },
-  "battery": { "format": "{capacity}% {icon}", "format-icons": ["󰂎", "󰁹", "󰂅"] }
+  "modules-right": [
+    "network",
+    "bluetooth",
+    "pulseaudio",
+    "battery",
+    "custom/controlcenter",
+  ],
+
+  "custom/logo": {
+    "format": "💧",
+    "tooltip": false,
+    "on-click": "rofi -show drun",
+  },
+  "hyprland/workspaces": {
+    "format": "{icon}",
+    "format-icons": {
+      "1": "●",
+      "2": "●",
+      "3": "●",
+      "default": "●",
+    },
+  },
+  "hyprland/window": {
+    "format": "{title}",
+    "max-length": 40,
+    "separate-outputs": true,
+  },
+  "clock": {
+    "format": "{:%a, %b %d   %I:%M %p}",
+    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+  },
+  "network": {
+    "format-wifi": "󰤨  {essid}",
+    "format-ethernet": "󰈀  Wired",
+    "format-disconnected": "󰤭  Offline",
+    "on-click": "nm-connection-editor",
+  },
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "on-click": "blueman-manager",
+  },
+  "pulseaudio": {
+    "format": "{icon}  {volume}%",
+    "format-muted": "󰝟",
+    "format-icons": {
+      "default": ["󰕿", "󰖀", "󰕾"],
+    },
+  },
+  "battery": {
+    "format": "{icon}  {capacity}%",
+    "format-icons": ["󰂎", "󰁹", "󰂅"],
+  },
+  "custom/controlcenter": {
+    "format": "󱂬",
+    "tooltip": false,
+    "on-click": "swaync-client -t -sw",
+  },
 }

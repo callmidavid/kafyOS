@@ -1,7 +1,0 @@
-#!/bin/sh
-set -eu
-
-# Add Flathub remote repository if network is available, otherwise skip gracefully
-if flatpak --help >/dev/null 2>&1; then
-  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>/dev/null || true
-fi
