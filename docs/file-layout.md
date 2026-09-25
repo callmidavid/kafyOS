@@ -4,7 +4,9 @@ Kafy separates the bootable Arch image from its user documentation and technical
 
 ## Mental model
 
-`distro/kafy/` is the active Archiso profile. It constructs the live ISO from an explicit package list, boot configuration, and files copied into the live root filesystem.
+`distro/kafy/` is the active Archiso assembly profile. It constructs the live ISO from an explicit package list, boot configuration, and a temporary profile composed from Kafy source trees.
+
+`config/` is the canonical source for static user and system configuration. `default/` holds Kafy-owned assets and templates. `bin/` holds Kafy commands. `install/` owns installation and first-run setup. The ISO builder composes these source trees into a generated Archiso profile; it does not maintain another product-config copy.
 
 `distro/kafy-deb/` is the preserved Debian implementation. It is historical reference only and must not be changed when working on the active image.
 
@@ -21,13 +23,16 @@ Kafy separates the bootable Arch image from its user documentation and technical
 | `distro/kafy/packages.x86_64` | Explicit packages in the live image. |
 | `distro/kafy/syslinux/` | BIOS boot menu configuration. |
 | `distro/kafy/efiboot/` | UEFI systemd-boot configuration. |
-| `distro/kafy/airootfs/` | Files copied into the ISO root filesystem. |
-| `distro/kafy/airootfs/etc/skel/` | Default configuration copied to each newly created user. |
-| `distro/kafy/airootfs/usr/local/bin/` | Kafy-owned runtime scripts, including the welcome flow and installer. |
+| `distro/kafy/airootfs/` | Archiso-only files, including live initramfs configuration. |
+| `distro/kafy/prepare-profile.sh` | Creates the temporary Archiso profile and composes Kafy source trees. |
+| `config/` | Kafy static defaults, including `/etc/skel` user configuration. |
+| `default/` | Kafy-owned assets, branding, and future templates. |
+| `bin/` | User-facing Kafy commands. |
+| `install/live/` | Live-session setup and the experimental installer. |
 
 ## Configuration ownership
 
-The live account and each new account receive Hyprland, Hyprpaper, Hyprlock, and Waybar defaults from `/etc/skel`. A Kafy update must not silently overwrite an existing person's home-directory configuration. New defaults should be versioned in the image or future Kafy package, while migrations must be explicit and reversible.
+The live account and each new account receive Hyprland, Hyprpaper, Hyprlock, and Waybar defaults from `config/etc/skel`. A Kafy update must not silently overwrite an existing person's home-directory configuration. New defaults belong in `config/`; migrations and explicit reset behavior belong in `migrations/` and `bin/`.
 
 ## Build output
 

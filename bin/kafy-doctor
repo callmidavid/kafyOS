@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+
+printf 'Kafy OS diagnostic summary\n\n'
+printf 'Operating system: '
+source /etc/os-release
+printf '%s\n' "${PRETTY_NAME:-Unknown}"
+printf 'Kernel: '
+uname -r
+printf 'Session: %s\n' "${XDG_CURRENT_DESKTOP:-Unknown}"
+printf 'Graphics devices:\n'
+lspci -nn | grep -Ei 'vga|3d|display' || true
+printf 'Network devices:\n'
+nmcli --terse --fields DEVICE,TYPE,STATE device status 2>/dev/null || true

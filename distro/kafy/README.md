@@ -31,8 +31,9 @@ Do not run `pacman` directly on Ubuntu or Debian; it is Arch's package manager. 
 ## Profile layout
 
 - `packages.x86_64`: exact packages installed in the image.
-- `airootfs/`: Kafy files copied into the live system.
+- `airootfs/`: Archiso-only files copied into the live system.
+- `prepare-profile.sh`: builds a temporary profile and composes Kafy source trees into it.
 - `profiledef.sh`: ISO metadata, architecture, boot modes, and compression settings.
 - `pacman.conf`: Arch repositories used during the image build; `multilib` is enabled for Steam and 32-bit graphics support.
 
-The live image signs in automatically as `liveuser` so it opens straight to the desktop. Step 1 is a live-session milestone; the Kafy graphical installer is intentionally not shipped until its user, disk, and autologin cleanup paths are implemented and tested.
+The live image signs in automatically as `liveuser` so it opens straight to the desktop. The current installer is experimental; it is source code for the live environment, not a statement that Kafy installation is production-ready.
