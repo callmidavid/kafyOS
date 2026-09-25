@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+command -v qs >/dev/null 2>&1 || {
+  printf 'Kafy Shell requires the quickshell package.\n' >&2
+  exit 1
+}
+
+exec qs -c kafy

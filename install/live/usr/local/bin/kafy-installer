@@ -1,236 +1,55 @@
 #!/usr/bin/env bash
-# Kafy OS — Interactive Installer & Welcome TUI (powered by gum)
-set -eo pipefail
+set -euo pipefail
 
-PRIMARY="#818cf8"
-ACCENT="#a78bfa"
-BG_DARK="#0f172a"
-SUCCESS="#34d399"
-ERROR="#f87171"
+target=/mnt/archinstall
 
-clear_banner() {
-  clear
-  echo ""
-  gum style --foreground "$PRIMARY" --bold --margin "0 2" "   __             ___         "
-  gum style --foreground "$PRIMARY" --bold --margin "0 2" "  / /_____ _     / _ \__ _    "
-  gum style --foreground "$PRIMARY" --bold --margin "0 2" " /  '_/ _\` / -_) / // (_-<    "
-  gum style --foreground "$ACCENT" --bold --margin "0 2" "/_/\_\\\__,_/\__/  \___/___/    "
-  echo ""
-  gum style --foreground "$ACCENT" --italic --margin "0 3" "Zero-setup. Gaming ready. Fluid & Modern."
-  echo ""
-}
-
-abort() {
-  echo ""
-  gum style --foreground "$ERROR" --bold " [!] ${1:-Installation aborted.}"
-  echo ""
+die() {
+  printf 'Kafy installer: %s\n' "$*" >&2
   exit 1
 }
 
-step_header() {
-  clear_banner
-  gum style --foreground "$PRIMARY" --bold "─── $1 ───"
-  echo ""
+require_root() {
+  [[ ${EUID} -eq 0 ]] || die 'run this command as root'
 }
 
-# --- STEP 1: WELCOME SCREEN ---
-welcome_step() {
-  clear_banner
-  gum style --padding "1 2" --border rounded --border-foreground "$PRIMARY" \
-    "Welcome to Kafy OS!
+select_user() {
+  local users=()
+  local account
 
-You are running the live environment. What would you like to do?"
+  while IFS=: read -r account _ uid _ _ home _; do
+    [[ $uid -ge 1000 && $uid -lt 65534 && $home == /home/* ]] || continue
+    users+=("$account")
+  done < "$target/etc/passwd"
 
-  ACTION=$(gum choose \
-    "1. 🚀 Install Kafy OS to disk" \
-    "2. 🖥️  Try Kafy OS Live (Explore Hyprland session)" \
-    "3. 🛠️  Open Terminal Shell") || abort
+  ((${#users[@]})) || die "no regular user was found in $target; create one in Archinstall first"
 
-  case "$ACTION" in
-    *"Install"*)
-      ;;
-    *"Try"*)
-      gum style --foreground "$SUCCESS" "Enjoy the Kafy OS live session!"
-      sleep 1
-      exit 0
-      ;;
-    *"Terminal"*)
-      gum style --foreground "$PRIMARY" "Dropping into shell..."
-      exit 0
-      ;;
-  esac
-}
+  if ((${#users[@]} == 1)); then
+    printf '%s\n' "${users[0]}"
+    return
+  fi
 
-# --- STEP 2: KEYBOARD LAYOUT ---
-keyboard_step() {
-  step_header "Keyboard Layout"
-
-  KBD_CHOICE=$(gum choose --height 10 --selected "English (US)" \
-    "English (US)" \
-    "English (UK)" \
-    "English (US, international)" \
-    "German" \
-    "French" \
-    "Spanish" \
-    "Portuguese (Brazil)" \
-    "Italian" \
-    "Japanese" \
-    "Russian") || abort
-
-  case "$KBD_CHOICE" in
-    "English (US)") KEYMAP="us" ;;
-    "English (UK)") KEYMAP="uk" ;;
-    "English (US, international)") KEYMAP="us-acentos" ;;
-    "German") KEYMAP="de-latin1" ;;
-    "French") KEYMAP="fr" ;;
-    "Spanish") KEYMAP="es" ;;
-    "Portuguese (Brazil)") KEYMAP="br-abnt2" ;;
-    "Italian") KEYMAP="it" ;;
-    "Japanese") KEYMAP="jp106" ;;
-    "Russian") KEYMAP="ru" ;;
-    *) KEYMAP="us" ;;
-  esac
-
-  if [[ $(tty 2>/dev/null) == "/dev/tty"* ]]; then
-    loadkeys "$KEYMAP" 2>/dev/null || true
+  if command -v gum >/dev/null 2>&1; then
+    printf '%s\n' "${users[@]}" | gum choose --header 'Select the Kafy desktop user:'
+  else
+    printf 'Multiple regular users were created. Re-run with KAFY_USER=<username>.\n' >&2
+    return 1
   fi
 }
 
-# --- STEP 3: USER ACCOUNT ---
-user_step() {
-  step_header "User Account Setup"
+require_root
+command -v archinstall >/dev/null 2>&1 || die 'archinstall is not available in this live image'
 
-  while true; do
-    USERNAME=$(gum input --placeholder "username (e.g. kafy)" --prompt "Username > " --prompt.foreground "$PRIMARY") || abort
-    if [[ "$USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
-      break
-    else
-      gum style --foreground "$ERROR" "Username must be lowercase alphanumeric without spaces."
-    fi
-  done
+printf '%s\n\n' 'Kafy uses Archinstall for disk layout and base-system installation.'
+printf '%s\n' 'In Archinstall, create a regular sudo user and select the desktop packages you need.'
+printf '%s\n\n' 'After it finishes, Kafy will safely apply its defaults to the installed target.'
 
-  FULLNAME=$(gum input --placeholder "Your full name (e.g. Kafy User)" --prompt "Full Name > " --prompt.foreground "$PRIMARY") || abort
+archinstall
 
-  while true; do
-    PASSWORD=$(gum input --password --placeholder "Enter your password" --prompt "Password > " --prompt.foreground "$PRIMARY") || abort
-    PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm password" --prompt "Confirm > " --prompt.foreground "$PRIMARY") || abort
+[[ -r "$target/etc/passwd" ]] || die "Archinstall did not leave an installed target at $target"
 
-    if [[ -n "$PASSWORD" && "$PASSWORD" == "$PASSWORD_CONFIRM" ]]; then
-      break
-    else
-      gum style --foreground "$ERROR" "Passwords do not match or cannot be empty. Try again."
-    fi
-  done
+user=${KAFY_USER:-}
+if [[ -z $user ]]; then
+  user=$(select_user) || die 'could not determine the Kafy desktop user'
+fi
 
-  HOSTNAME=$(gum input --value "kafy-pc" --placeholder "Hostname" --prompt "Computer Name > " --prompt.foreground "$PRIMARY") || abort
-}
-
-# --- STEP 4: TIMEZONE ---
-timezone_step() {
-  step_header "Select Timezone"
-  
-  CURRENT_TZ="UTC"
-  if command -v timedatectl >/dev/null 2>&1; then
-    CURRENT_TZ=$(timedatectl show -p Timezone --value 2>/dev/null || echo "UTC")
-  fi
-
-  TIMEZONE=$(timedatectl list-timezones | gum filter --height 10 --placeholder "Filter timezone (e.g. London, New_York, Lagos, Berlin)...") || abort
-}
-
-# --- STEP 5: DISK SELECTION ---
-disk_step() {
-  step_header "Target Installation Disk"
-  
-  gum style --foreground "$ERROR" --bold "⚠️  WARNING: The selected disk will be formatted for Kafy OS!"
-  echo ""
-
-  # Find available non-loop, non-iso disks
-  mapfile -t DISK_LIST < <(lsblk -d -n -o NAME,SIZE,MODEL -e 7,11 | awk '{printf "/dev/%s (%s, %s)\n", $1, $2, substr($0, index($0,$3))}')
-
-  if [[ ${#DISK_LIST[@]} -eq 0 ]]; then
-    abort "No suitable hard drive found!"
-  fi
-
-  SELECTED_DISK_LINE=$(printf '%s\n' "${DISK_LIST[@]}" | gum choose --header "Select destination drive:") || abort
-  TARGET_DISK=$(echo "$SELECTED_DISK_LINE" | awk '{print $1}')
-}
-
-# --- STEP 6: SUMMARY & CONFIRMATION ---
-confirm_step() {
-  step_header "Installation Summary"
-
-  echo "Field,Value" > /tmp/kafy-summary.csv
-  echo "Username,$USERNAME ($FULLNAME)" >> /tmp/kafy-summary.csv
-  echo "Target Disk,$TARGET_DISK" >> /tmp/kafy-summary.csv
-  echo "Hostname,$HOSTNAME" >> /tmp/kafy-summary.csv
-  echo "Timezone,$TIMEZONE" >> /tmp/kafy-summary.csv
-  echo "Keyboard,$KEYMAP" >> /tmp/kafy-summary.csv
-
-  gum table -s "," < /tmp/kafy-summary.csv
-  echo ""
-
-  if ! gum confirm --prompt.foreground "$ERROR" --affirmative "Yes, Wipe & Install Kafy OS" --negative "Cancel" "Ready to install?"; then
-    abort "Installation cancelled."
-  fi
-}
-
-# --- STEP 7: INSTALLATION EXECUTION ---
-install_step() {
-  step_header "Installing Kafy OS..."
-
-  # Generate archinstall config or perform targeted setup
-  cat <<ARCHJSON > /tmp/kafy-install-config.json
-{
-  "disk_layouts": [
-    {
-      "device": "$TARGET_DISK",
-      "wipe": true
-    }
-  ],
-  "keyboard": "$KEYMAP",
-  "sys_enc": "UTF-8",
-  "sys_lang": "en_US",
-  "timezone": "$TIMEZONE",
-  "hostname": "$HOSTNAME",
-  "audio_server": "pipewire",
-  "network_config": {
-    "type": "nm"
-  },
-  "bootloader": "systemd-boot",
-  "profile_config": {
-    "profile": {
-      "name": "Hyprland"
-    }
-  },
-  "users": [
-    {
-      "username": "$USERNAME",
-      "password": "$PASSWORD",
-      "sudo": true
-    }
-  ]
-}
-ARCHJSON
-
-  gum spin --spinner "dots" --title "Partitioning drive and bootstrapping Kafy OS..." -- archinstall --config /tmp/kafy-install-config.json --silent || {
-    abort "archinstall encountered an issue. Check /var/log/archinstall/install.log."
-  }
-
-  gum style --foreground "$SUCCESS" --bold --margin "1 2" "
-  🎉 Kafy OS has been successfully installed!
-  You can now reboot and enjoy your new operating system.
-  "
-
-  if gum confirm --affirmative "Reboot Now" --negative "Stay in Live Environment" "Would you like to reboot?"; then
-    reboot
-  fi
-}
-
-# Run flow
-welcome_step
-keyboard_step
-user_step
-timezone_step
-disk_step
-confirm_step
-install_step
+exec /usr/local/bin/kafy-install-target --target "$target" --user "$user"

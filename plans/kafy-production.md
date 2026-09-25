@@ -91,8 +91,8 @@ Exit criterion: changing wallpaper updates the Kafy shell consistently, can be r
 
 ## Phase 5 — Production installation and updates
 
-1. Replace the experimental Archinstall wrapper with Kafy-owned installation orchestration.
-2. Separate root-side system setup, user provisioning, and graphical first-run steps with idempotency markers.
+1. Replace the experimental Archinstall wrapper with Kafy-owned installation orchestration. In progress: the live entry point now delegates disk layout and base installation to Archinstall, then invokes Kafy target provisioning.
+2. Separate root-side system setup, user provisioning, and graphical first-run steps with idempotency markers. In progress: `install/system/` contains the target payload and an idempotent per-user first-boot finalizer.
 3. Implement a safe update path and migrations before publishing installable Kafy packages or a public repository.
 4. Add installed-system acceptance tests: install, reboot, login, update, restart, and recover.
 

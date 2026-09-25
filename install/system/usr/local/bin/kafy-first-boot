@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/kafy"
+state_file="$state_dir/first-boot-complete"
+log_file="$state_dir/first-boot.log"
+
+[[ -e $state_file ]] && exit 0
+mkdir -p "$state_dir"
+
+{
+  printf 'Kafy first boot: %s\n' "$(date --iso-8601=seconds)"
+  /usr/local/bin/kafy-doctor
+} >"$log_file" 2>&1 || true
+
+touch "$state_file"

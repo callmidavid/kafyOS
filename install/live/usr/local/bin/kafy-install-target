@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+payload=/usr/local/share/kafy-installer/system
+
+[[ -x "$payload/usr/local/lib/kafy/install/provision-target" ]] || {
+  printf 'Kafy installer payload is missing: %s\n' "$payload" >&2
+  exit 1
+}
+
+exec "$payload/usr/local/lib/kafy/install/provision-target" "$@"

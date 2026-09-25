@@ -1,0 +1,10 @@
+[Unit]
+Description=Kafy first boot finalization
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kafy-first-boot
+
+[Install]
+WantedBy=default.target

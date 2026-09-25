@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --target TARGET_ROOT --user USERNAME\n' "${0##*/}" >&2
+  exit 2
+}
+
+log() {
+  printf 'Kafy provisioning: %s\n' "$*"
+}
+
+target=
+user=
+
+while (($#)); do
+  case "$1" in
+    --target) target=${2:-}; shift 2 ;;
+    --user) user=${2:-}; shift 2 ;;
+    *) usage ;;
+  esac
+done
+
+[[ ${EUID} -eq 0 ]] || { printf 'Kafy provisioning must run as root.\n' >&2; exit 1; }
+[[ -n $target && -d $target/etc && -r $target/etc/passwd ]] || usage
+[[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || { printf 'Invalid username: %s\n' "$user" >&2; exit 1; }
+
+payload_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)
+home=$(awk -F: -v user="$user" '$1 == user { print $6; exit }' "$target/etc/passwd")
+[[ -n $home && $home == /home/* && -d "$target$home" ]] || {
+  printf 'The installed target does not contain home directory for %s.\n' "$user" >&2
+  exit 1
+}
+
+uid_gid=$(awk -F: -v user="$user" '$1 == user { print $3 ":" $4; exit }' "$target/etc/passwd")
+
+log 'copying Kafy system assets and commands'
+install -Dm755 /usr/local/bin/kafy-doctor "$target/usr/local/bin/kafy-doctor"
+install -Dm755 /usr/local/bin/kafy-theme "$target/usr/local/bin/kafy-theme"
+install -Dm755 /usr/local/bin/kafy-shell "$target/usr/local/bin/kafy-shell"
+install -Dm755 "$payload_root/usr/local/bin/kafy-first-boot" "$target/usr/local/bin/kafy-first-boot"
+install -Dm644 "$payload_root/etc/systemd/user/kafy-first-boot.service" "$target/etc/systemd/user/kafy-first-boot.service"
+
+install -d -m 0755 "$target/etc/skel"
+cp -a /etc/skel/. "$target/etc/skel/"
+install -d -m 0755 "$target/usr/share"
+cp -a /usr/share/kafy "$target/usr/share/"
+install -d -m 0755 "$target/usr/share/wallpapers"
+cp -a /usr/share/wallpapers/kafy "$target/usr/share/wallpapers/"
+install -d -m 0755 "$target/etc/xdg"
+cp -a /etc/xdg/quickshell "$target/etc/xdg/"
+
+log "seeding defaults for $user without overwriting existing files"
+cp -an "$target/etc/skel/." "$target$home/"
+chown -R "$uid_gid" "$target$home"
+
+log 'removing live-session-only configuration'
+rm -f "$target/etc/sddm.conf.d/kafy-live.conf" "$target/etc/sudoers.d/10-kafy-live"
+if [[ -f $target/etc/hostname ]] && [[ $(<"$target/etc/hostname") == kafy-live ]]; then
+  printf 'kafy\n' > "$target/etc/hostname"
+fi
+
+log 'enabling the per-user first-boot finalizer'
+mkdir -p "$target/etc/systemd/user/default.target.wants"
+ln -sfn ../kafy-first-boot.service "$target/etc/systemd/user/default.target.wants/kafy-first-boot.service"
+install -d -m 0755 "$target/etc/kafy"
+printf 'version=1\nuser=%s\n' "$user" > "$target/etc/kafy/install-state"
+
+log 'Kafy target provisioning completed'

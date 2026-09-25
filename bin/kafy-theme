@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+theme_root=/usr/share/kafy/themes
+default_theme=kafy
+
+usage() {
+  printf 'Usage: kafy-theme {current|verify}\n' >&2
+  exit 2
+}
+
+theme=${KAFY_THEME:-$default_theme}
+theme_dir="$theme_root/$theme"
+
+case ${1:-} in
+  current)
+    printf '%s\n' "$theme"
+    ;;
+  verify)
+    for required_file in metadata.json hyprland.conf waybar.css shell/KafyTheme.qml; do
+      [[ -r "$theme_dir/$required_file" ]] || {
+        printf 'Kafy theme is incomplete: %s\n' "$theme_dir/$required_file" >&2
+        exit 1
+      }
+    done
+    printf 'Kafy theme is valid: %s\n' "$theme"
+    ;;
+  *) usage ;;
+esac
