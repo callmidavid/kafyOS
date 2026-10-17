@@ -36,7 +36,6 @@ uid_gid=$(awk -F: -v user="$user" '$1 == user { print $3 ":" $4; exit }' "$targe
 
 log 'copying Kafy system assets and commands'
 install -Dm755 /usr/local/bin/kafy-doctor "$target/usr/local/bin/kafy-doctor"
-install -Dm755 /usr/local/bin/kafy-theme "$target/usr/local/bin/kafy-theme"
 install -Dm755 "$payload_root/usr/local/bin/kafy-first-boot" "$target/usr/local/bin/kafy-first-boot"
 install -Dm644 "$payload_root/etc/systemd/user/kafy-first-boot.service" "$target/etc/systemd/user/kafy-first-boot.service"
 

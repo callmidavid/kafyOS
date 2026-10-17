@@ -3,7 +3,7 @@ contrast = 0.2
 variation = "standard"
 
 [config.reload_apps]
-waybar = true
+waybar = false
 
 [templates.waybar]
 input_path = "~/.config/matugen/templates/waybar-colors.css"

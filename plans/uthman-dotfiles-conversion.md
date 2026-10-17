@@ -43,9 +43,8 @@ Kafy adopts the desktop from `https://github.com/codetesla51/uthman_dotfiles` as
 - **WatchCat.** Added the `nethogs` package, a `watchcat.service` user unit enabled through `graphical-session.target.wants`, and a scoped `/etc/sudoers.d/kafy-watchcat` rule (`%wheel … NOPASSWD: /usr/bin/nethogs`). Opt out with `systemctl --user disable --now watchcat.service`.
 - **Duplicate shell retired.** `shell/kafy`, `bin/kafy-shell`, and the `/etc/xdg/quickshell/kafy` composition are gone. The Uthman-derived Quickshell in `/etc/skel/.config/quickshell` is Kafy's only shell; `test/unit/shell-contract.sh` asserts that and fails if the old shell returns.
 - **Matugen output dirs.** Seeded `~/.config/zathura/` and `~/.config/cavasik/` so every configured template has a writable destination.
+- **Legacy theme stack retired.** `themes/kafy`, `bin/kafy-theme`, and the Hyprpaper-based `install/live/usr/local/bin/kafy-wallpaper` are gone, and the `hyprpaper` package was dropped. The adopted session themes with Matugen and applies wallpaper with `awww`. Matugen's `reload_apps.waybar` is disabled because Waybar is not installed.
 
 ## Remaining open items
 
-- `themes/kafy` and `bin/kafy-theme` are now vestigial: nothing in the adopted session reads the static theme. Decide whether to retire them too.
-- Matugen's `reload_apps.waybar` targets Waybar, which is not installed; harmless but unused.
 - Unverified in a VM. The next acceptance step is a disposable-VM boot to confirm the session, SDDM theme, cursor, wallpaper, and installer window, then an install/reboot cycle and a wallpaper change to confirm Matugen recolors the desktop and the login screen.
