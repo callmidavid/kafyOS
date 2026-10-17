@@ -50,6 +50,16 @@ cp -a /usr/share/wallpapers/kafy "$target/usr/share/wallpapers/"
 install -d -m 0755 "$target/etc/xdg"
 cp -a /etc/xdg/quickshell "$target/etc/xdg/"
 
+log 'copying Kafy login theme, fonts, and cursor base'
+install -d -m 0755 "$target/usr/share/sddm/themes"
+cp -a /usr/share/sddm/themes/elarun-custom "$target/usr/share/sddm/themes/"
+install -d -m 0755 "$target/usr/share/fonts/TTF"
+install -Dm644 /usr/share/fonts/TTF/Iceland-Regular.ttf "$target/usr/share/fonts/TTF/Iceland-Regular.ttf"
+install -d -m 0755 "$target/usr/share/icons"
+cp -a /usr/share/icons/Bibata-Modern-Ice "$target/usr/share/icons/"
+install -d -m 0755 "$target/etc/sddm.conf.d"
+printf '[Theme]\nCurrent=elarun-custom\n' > "$target/etc/sddm.conf.d/10-theme.conf"
+
 log "seeding defaults for $user without overwriting existing files"
 cp -an "$target/etc/skel/." "$target$home/"
 chown -R "$uid_gid" "$target$home"

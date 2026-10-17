@@ -9,5 +9,6 @@ This directory explains how Kafy is built and maintained. It is for contributors
 - [Kafy ISO build and test](../../kafy-iso/docs/iso-build-and-test.md): builder contract and first-boot test checklist.
 - [First ISO observations](first-iso-observations.md): evidence and follow-up from live-image smoke tests.
 - [Production plan](../plans/kafy-production.md): approved path from the current live ISO to a Kafy shell, ISO repository, installer, and update system.
+- [Uthman Dotfiles conversion](../plans/uthman-dotfiles-conversion.md): plan for folding the Uthman Dotfiles desktop, shell, commands, and provisioning into Kafy source.
 - [Roadmap](os-roadmap.md): current milestones.
 - [Debian live-build history](debian-live-build-explained.md): archived rationale for the former Debian profile.

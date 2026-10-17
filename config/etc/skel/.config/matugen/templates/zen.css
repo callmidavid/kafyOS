@@ -1,0 +1,260 @@
+/* ── matugen Zen layer — appended after firefox.css inside userChrome.css ──
+ * ULTRA GLASS: floating content island, pill tabs with accent glow, deep
+ * translucent chrome. The --m-* vars come from firefox.css above.
+ * Selectors verified against Zen 1.23 omni.ja (tab[selected], #zen-*
+ * containers, --zen-primary-color et al). Opacity degrades gracefully:
+ * translucent layers composite over --m-bg where the compositor gives an
+ * opaque window, and bleed real wallpaper blur where it gives ARGB. */
+
+:root {
+  /* Zen's own theming API — accent + surfaces follow the wallpaper */
+  --zen-primary-color: {{ colors.primary.default.hex }} !important;
+  --zen-colors-primary: {{ colors.surface.default.hex }} !important;
+  --zen-colors-secondary: {{ colors.surface_variant.default.hex }} !important;
+  --zen-colors-tertiary: {{ colors.background.default.hex }} !important;
+  --zen-colors-border: {{ colors.outline.default.hex }} !important;
+  --zen-main-browser-background: {{ colors.background.default.hex }} !important;
+  --zen-toolbar-element-bg: color-mix(in srgb, {{ colors.surface_variant.default.hex }} 55%, transparent) !important;
+
+  /* glass ramp — sidebar reads over blur, navbar melts into it */
+  --z-glass-deep: color-mix(in srgb, var(--m-surface) 62%, transparent);
+  --z-glass-thin: color-mix(in srgb, var(--m-surface) 42%, transparent);
+  --z-blur: 26px;
+  --z-radius: 14px;
+  --z-glow: 0 0 18px color-mix(in srgb, var(--m-accent) 35%, transparent);
+}
+
+/* ══ transparent-zen extension support — remove the light backdrop behind
+ * the page so supported sites (github, reddit, youtube…) go truly clear.
+ * Snippet straight from the extension author's README. */
+:root:not([inDOMFullscreen="true"]):not([chromehidden~="location"]):not([chromehidden~="toolbar"])
+  #tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer
+  browser[transparent="true"] {
+  background: none !important;
+}
+
+/* ══ full frame — one rounded hairline around the whole UI ══
+ * brighter than glass-line so it reads; accent-kissed while focused. */
+#zen-main-app-wrapper {
+  margin: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--m-line) 60%, transparent) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: var(--m-bg) !important;
+}
+#main-window:not(:-moz-window-inactive) #zen-main-app-wrapper {
+  border-color: color-mix(in srgb, var(--m-accent) 38%, var(--m-line)) !important;
+}
+/* sidebar splits from content — divider fades at both ends */
+#sidebar-box,
+#sidebar {
+  border-right: 1px solid transparent !important;
+  border-image: linear-gradient(to bottom, transparent 4%, var(--m-glass-line) 22%, var(--m-glass-line) 78%, transparent 96%) 1 !important;
+}
+
+/* ══ content fills the window — no island, no rounding, no border ══ */
+#zen-tabbox-wrapper {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--m-bg) !important;
+}
+#zen-appcontent-wrapper {
+  background: transparent !important;
+}
+
+/* ══ top navbar — thin glass melting into the blur ══
+ * (firefox.css keeps #navigator-toolbox near-opaque; Zen goes thinner so
+ * the wallpaper bleeds through once the transparent-browser pref lands.) */
+#navigator-toolbox {
+  background: var(--z-glass-thin) !important;
+  backdrop-filter: blur(var(--z-blur)) saturate(160%) !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+#zen-appcontent-navbar-container,
+#zen-appcontent-navbar-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+#PersonalToolbar {
+  background: color-mix(in srgb, var(--m-surface) 35%, transparent) !important;
+  backdrop-filter: blur(var(--z-blur)) saturate(160%) !important;
+}
+.zen-toolbar-background {
+  background: transparent !important;
+}
+
+/* ══ sidebar — deep glass so glyphs stay readable, one 12px rail ══ */
+#sidebar-box,
+#sidebar {
+  background: var(--z-glass-deep) !important;
+  backdrop-filter: blur(var(--z-blur)) saturate(160%) !important;
+  padding: 0 12px !important;
+}
+
+/* ══ vertical tabs — floating pills, lit active ══ */
+#zen-tabs-wrapper tab::before,
+#zen-tabs-wrapper tab::after {
+  border: none !important;
+}
+#zen-tabs-wrapper tab .tab-background {
+  border-radius: 12px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+#zen-tabs-wrapper tab[selected] .tab-background,
+#zen-tabs-wrapper tab[visuallyselected] .tab-background {
+  background: color-mix(in srgb, var(--m-accent) 20%, var(--m-raised)) !important;
+  backdrop-filter: blur(var(--z-blur)) !important;
+  border-color: color-mix(in srgb, var(--m-accent) 35%, transparent) !important;
+  box-shadow: none !important;
+}
+#zen-tabs-wrapper tab:hover:not([selected]):not([visuallyselected]) .tab-background {
+  background: color-mix(in srgb, var(--m-raised) 38%, transparent) !important;
+}
+#zen-tabs-wrapper tab .tab-content {
+  color: var(--m-dim) !important;
+}
+#zen-tabs-wrapper tab[selected] .tab-content,
+#zen-tabs-wrapper tab[visuallyselected] .tab-content {
+  color: var(--m-fg) !important;
+}
+/* ══ zen toasts (top pills) — quiet glass, no loud edge ══ */
+.zen-toast {
+  background: color-mix(in srgb, var(--m-surface) 82%, transparent) !important;
+  backdrop-filter: blur(var(--z-blur)) saturate(150%) !important;
+  border: 1px solid var(--m-glass-line) !important;
+  border-radius: 12px !important;
+  color: var(--m-fg) !important;
+  box-shadow: none !important;
+}
+
+/* ══ window controls — box hidden entirely (Ctrl+Shift+W closes) ══ */
+#titlebar-buttonbox-container,
+.titlebar-buttonbox-container {
+  display: none !important;
+}
+.titlebar-button {
+  background: transparent !important;
+  fill: var(--m-dim) !important;
+  border-radius: 8px !important;
+}
+.titlebar-button:hover {
+  background: color-mix(in srgb, var(--m-raised) 55%, transparent) !important;
+  fill: var(--m-fg) !important;
+}
+#titlebar-close:hover {
+  background: color-mix(in srgb, var(--m-err) 30%, transparent) !important;
+}
+
+/* tab close X — removed entirely (Ctrl+W / middle-click still close) */
+#zen-tabs-wrapper .tab-close-button {
+  display: none !important;
+}
+
+/* ══ pinned tabs — quiet pill, accent edge only while active ══ */
+#zen-tabs-wrapper tab[pinned]:not([selected]) .tab-background {
+  background: color-mix(in srgb, var(--m-raised) 30%, transparent) !important;
+  border-color: var(--m-glass-line) !important;
+}
+#zen-tabs-wrapper tab[pinned][selected] .tab-background,
+#zen-tabs-wrapper tab[pinned][visuallyselected] .tab-background {
+  background: color-mix(in srgb, var(--m-accent) 20%, var(--m-raised)) !important;
+  border-color: color-mix(in srgb, var(--m-accent) 55%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/* essentials row floats free with air around it */
+.zen-essentials-container {
+  background: transparent !important;
+  margin-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+/* workspace sections */
+.zen-workspace-tabs-section,
+.zen-workspace-pinned-tabs-section {
+  color: var(--m-sub) !important;
+}
+
+/* ══ sidebar rhythm — pills sit inside the rail ══ */
+#zen-sidebar-top-buttons {
+  padding-top: 6px !important;
+  margin-bottom: 4px !important;
+}
+.zen-current-workspace-indicator {
+  /* hidden — workspace dots at the sidebar foot cover switching */
+  display: none !important;
+}
+/* search + url pills live inside the rail (one of these owns the sidebar pill
+ * depending on toolbar layout; dead rule is harmless) */
+#sidebar-search-container,
+#urlbar-container {
+  margin-inline: 4px !important;
+}
+#zen-tabs-wrapper {
+  padding: 2px 0 0 !important;
+}
+#zen-tabs-wrapper tab {
+  margin-block: 3px !important;
+}
+#zen-workspaces-button {
+  margin: 8px !important;
+}
+#zen-sidebar-foot-buttons {
+  padding-bottom: 8px !important;
+}
+
+/* ══ workspaces button + current-workspace pill ══ */
+#zen-workspaces-button {
+  color: var(--m-sub) !important;
+  border-radius: 10px !important;
+}
+#zen-workspaces-button:hover {
+  background: color-mix(in srgb, var(--m-raised) 50%, transparent) !important;
+  color: var(--m-fg) !important;
+}
+.zen-workspace-icon {
+  color: var(--m-dim) !important;
+}
+.zen-current-workspace-indicator {
+  color: var(--m-fg) !important;
+  background: color-mix(in srgb, var(--m-raised) 40%, transparent) !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--m-glass-line) !important;
+}
+.zen-current-workspace-indicator-icon {
+  fill: var(--m-accent) !important;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--m-accent) 70%, transparent));
+}
+
+/* ══ sidebar top/foot buttons ══ */
+#zen-sidebar-top-buttons toolbarbutton,
+#zen-sidebar-foot-buttons toolbarbutton {
+  fill: var(--m-dim) !important;
+  color: var(--m-sub) !important;
+  border-radius: 10px !important;
+}
+#zen-sidebar-top-buttons toolbarbutton:hover,
+#zen-sidebar-foot-buttons toolbarbutton:hover {
+  background: color-mix(in srgb, var(--m-raised) 50%, transparent) !important;
+  fill: var(--m-fg) !important;
+}
+
+/* ══ urlbar — pill with lit focus ring ══ */
+#urlbar-background {
+  border-radius: 14px !important;
+}
+#urlbar[focused] > #urlbar-background,
+#urlbar[open] > #urlbar-background {
+  box-shadow: 0 0 0 1px var(--m-accent), var(--z-glow) !important;
+}
+
+/* ══ loading progress follows the accent ══ */
+#zen-loading-progress-bar {
+  background: var(--m-accent) !important;
+  box-shadow: var(--z-glow) !important;
+}

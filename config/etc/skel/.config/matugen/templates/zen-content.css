@@ -1,0 +1,112 @@
+/* ── matugen Zen content — new-tab/home pages + global niceties (ZEN ONLY) ──
+ * Small centered logo, NOT a wallpaper. Search capped so it stops
+ * stretching wall-to-wall. */
+
+/* Everything (all sites): themed selection + thin scrollbars */
+::selection {
+  background: color-mix(in srgb, {{ colors.primary.default.hex }} 35%, transparent);
+  color: {{ colors.on_background.default.hex }};
+}
+html {
+  scrollbar-width: thin;
+  scrollbar-color: {{ colors.surface_variant.default.hex }} {{ colors.background.default.hex }};
+}
+
+/* New-tab / home / blank pages */
+@-moz-document url("about:newtab"), url("about:home"), url("about:blank") {
+  body {
+    background-color: {{ colors.background.default.hex }} !important;
+    background-image: url("file:///usr/share/kafy/zen/newtab-logo.png") !important;
+    background-position: center 32% !important;
+    background-size: 300px !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+    color: {{ colors.on_background.default.hex }} !important;
+    color-scheme: dark;
+  }
+
+  /* search box — capped width, centered, glass */
+  .search-handoff-button,
+  .search-wrapper input,
+  .search-inner-wrapper,
+  input[type="search"] {
+    background: color-mix(in srgb, {{ colors.surface.default.hex }} 72%, transparent) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    color: {{ colors.on_background.default.hex }} !important;
+    border: 1px solid {{ colors.outline.default.hex }} !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+  }
+  .search-wrapper {
+    max-width: 640px !important;
+    margin-inline: auto !important;
+  }
+  .search-handoff-button:focus,
+  .search-handoff-button:focus-within,
+  .search-wrapper input:focus,
+  input[type="search"]:focus {
+    border-color: {{ colors.primary.default.hex }} !important;
+  }
+  .fake-textbox,
+  .search-handoff-button::placeholder,
+  .search-wrapper input::placeholder {
+    color: {{ colors.on_surface.default.hex }} !important;
+  }
+  .search-handoff-button .fake-caret {
+    background: {{ colors.primary.default.hex }} !important;
+  }
+
+  /* top-site cards — glass */
+  .top-site-outer .tile {
+    background: color-mix(in srgb, {{ colors.surface_variant.default.hex }} 68%, transparent) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+  }
+  .top-site-outer:hover .tile,
+  .top-site-outer .tile:hover {
+    background: color-mix(in srgb, {{ colors.surface_variant.default.hex }} 80%, {{ colors.primary.default.hex }} 20%) !important;
+  }
+  .top-site-outer .title {
+    color: {{ colors.on_background.default.hex }} !important;
+  }
+  .top-site-outer .context-menu-button {
+    color: {{ colors.on_surface.default.hex }} !important;
+  }
+
+  /* pocket / highlights cards — glass */
+  .card-outer,
+  .ds-card {
+    background: color-mix(in srgb, {{ colors.surface.default.hex }} 72%, transparent) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    border-radius: 12px !important;
+  }
+  .card-outer:hover,
+  .ds-card:hover {
+    background: color-mix(in srgb, {{ colors.surface.default.hex }} 90%, {{ colors.primary.default.hex }} 10%) !important;
+  }
+
+  /* logo + wordmark follow the accent */
+  .logo-and-wordmark .wordmark {
+    fill: {{ colors.primary.default.hex }} !important;
+  }
+
+  /* settings gear + close */
+  .icon-settings,
+  .personalize-button {
+    color: {{ colors.on_surface.default.hex }} !important;
+  }
+  .icon-settings:hover,
+  .personalize-button:hover {
+    color: {{ colors.primary.default.hex }} !important;
+  }
+
+  /* weather / preferences pill — glass */
+  .weatherCard,
+  .prefs-pane-wrapper {
+    background: color-mix(in srgb, {{ colors.surface.default.hex }} 72%, transparent) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    border-radius: 12px !important;
+    color: {{ colors.on_background.default.hex }} !important;
+  }
+}

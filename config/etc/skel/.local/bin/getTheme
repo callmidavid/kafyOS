@@ -1,0 +1,149 @@
+#!/bin/bash
+
+THEME_TYPE="scheme-fidelity"
+CONTRAST="0.2"
+MODE="dark"
+WALLPAPER=""
+SOURCE=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t|--type)
+            [[ "$2" == scheme-* ]] && THEME_TYPE="$2" || { echo "getTheme: unknown type $2" >&2; exit 1; }
+            shift 2
+            ;;
+        -c|--contrast)
+            CONTRAST="$2"
+            shift 2
+            ;;
+        -m|--mode)
+            [[ "$2" == dark || "$2" == light ]] && MODE="$2" || { echo "getTheme: mode must be dark|light" >&2; exit 1; }
+            shift 2
+            ;;
+        -s|--source)
+            SOURCE="$2"
+            shift 2
+            ;;
+        /*)
+            WALLPAPER="$1"
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$WALLPAPER" ]]; then
+    WALLPAPER=$(readlink ~/.config/theme/current/background 2>/dev/null | tr -d '[:space:]')
+    [[ -z "$WALLPAPER" ]] && WALLPAPER=$(readlink ~/.config/omarchy/current/background 2>/dev/null | tr -d '[:space:]')
+fi
+
+if [[ -z "$WALLPAPER" ]]; then
+    echo "Error: no wallpaper found"
+    exit 1
+fi
+
+if [[ ! -f "$WALLPAPER" ]]; then
+    echo "Error: wallpaper not found at $WALLPAPER"
+    exit 1
+fi
+
+echo "Generating theme from wallpaper..."
+echo "  Wallpaper: $WALLPAPER"
+echo "  Type: $THEME_TYPE"
+echo "  Contrast: $CONTRAST"
+echo "  Mode: $MODE"
+
+if [[ -n "$SOURCE" ]]; then
+    matugen color hex "$SOURCE" --mode "$MODE" --type "$THEME_TYPE" --contrast "$CONTRAST"
+else
+    matugen image "$WALLPAPER" --mode "$MODE" --type "$THEME_TYPE" --contrast "$CONTRAST" --source-color-index 0
+fi
+
+if [[ $? -ne 0 ]]; then
+    echo "Error: matugen failed"
+    exit 1
+fi
+
+# Keep the pointer palette synchronized with Matugen before apps reload.
+"$HOME/.local/bin/matugen-cursor" || echo "Warning: cursor theme update failed" >&2
+
+echo "Applying colors..."
+
+# Fire every reload in parallel so nothing flashes sequentially.
+# Hyprland re-sources colors.conf, so borders/window colors update too.
+hyprctl reload &
+
+# kitty watches only kitty.conf, not the matugen theme include — force the
+# reload explicitly (kitty's reload_conf_in_all_kitties is SIGUSR1).
+pkill -SIGUSR1 -x kitty 2>/dev/null & true
+gen-zed-theme 2>/dev/null & true
+syncLimusicTheme 2>/dev/null & true
+
+# Zed only reads theme files at startup (no hot-reload): if it's running,
+# say so — re-select Matugen via Ctrl+K Ctrl+T to apply the new colors.
+if pgrep -x zed >/dev/null 2>&1; then
+    echo "Zed is running: press Ctrl+K Ctrl+T and re-select Matugen (Zed reads theme files at startup only)"
+    command -v notify-send >/dev/null 2>&1 && notify-send "Theme updated" "Re-select Matugen in Zed (Ctrl+K Ctrl+T)" 2>/dev/null & true
+fi
+
+# Firefox reacts to userChrome.css only from a real file inside the profile
+# chrome dir (a symlink is silently skipped by its sandboxed UI process).
+# Copy the freshly-generated theme in; it shows after the next restart.
+for _ffbase in "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox"; do
+    [[ -f "$_ffbase/profiles.ini" ]] || continue
+    _profdir=$(ls -d "$_ffbase"/*.default-release 2>/dev/null | head -1)
+    [[ -z "$_profdir" ]] && _profdir=$(ls -d "$_ffbase"/*.default* 2>/dev/null | head -1)
+    [[ -n "$_profdir" ]] && {
+        mkdir -p "$_profdir/chrome"
+        cp -f "$HOME/.config/theme/current/firefox.css" "$_profdir/chrome/userChrome.css"
+        cp -f "$HOME/.config/theme/current/firefox-usercontent.css" "$_profdir/chrome/userContent.css"
+    }
+done &
+
+# Zen gets the same theme: Firefox chrome + Zen layer stacked into one
+# userChrome.css (Zen tabs are `tab[selected]`, not `.tabbrowser-tab`).
+# user.js carries the stylesheets pref + transparent-browser pref so no
+# prefs.js surgery is needed (all grep-guarded, append-once).
+for _zprof in "$HOME/.config/zen"/*.Default* "$HOME/.config/zen"/*.default*; do
+    [[ -f "$_zprof/prefs.js" ]] || continue
+    mkdir -p "$_zprof/chrome"
+    { cat "$HOME/.config/theme/current/firefox.css"; printf '\n'; cat "$HOME/.config/theme/current/zen.css"; } > "$_zprof/chrome/userChrome.css"
+    cp -f "$HOME/.config/theme/current/zen-usercontent.css" "$_zprof/chrome/userContent.css"
+    grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets' "$_zprof/user.js" 2>/dev/null || \
+        echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$_zprof/user.js"
+    grep -q 'browser.tabs.allow_transparent_browser' "$_zprof/user.js" 2>/dev/null || \
+        echo 'user_pref("browser.tabs.allow_transparent_browser", true);' >> "$_zprof/user.js"
+    grep -q 'zen.widget.linux.transparency' "$_zprof/user.js" 2>/dev/null || \
+        echo 'user_pref("zen.widget.linux.transparency", true);' >> "$_zprof/user.js"
+    # SuperPins defaults — bool prefs mirror the mod's checkbox options
+    # (mod reads them via -moz-pref). NOTE: user.js wins every startup, so
+    # flipping these in Settings → Zen Mods only sticks if removed here.
+    for _sp in uc.pins.bg uc.pins.active-bg uc.pins.legacy-layout uc.essentials.transition-bg uc.remove-sidebar-scrollbar uc.pins.grid-count; do
+        grep -q "\"$_sp\"" "$_zprof/user.js" 2>/dev/null || echo "user_pref(\"$_sp\", true);" >> "$_zprof/user.js"
+    done
+    grep -q '"mod.superpins.pins.grid-count"' "$_zprof/user.js" 2>/dev/null || \
+        echo 'user_pref("mod.superpins.pins.grid-count", "4");' >> "$_zprof/user.js"
+    # Data-saver prefs — kill speculative connections + autoplay + bg updates.
+    # Saves mobile data; re-enable updates when back on wifi (delete these lines).
+    for _ds in 'network.dns.disablePrefetch", true' 'network.predictor.enabled", false' 'browser.urlbar.speculativeConnect.enabled", false' 'network.prefetch-next", false' 'media.autoplay.default", 5' 'app.update.auto", false' 'extensions.update.autoUpdateDefault", false'; do
+        _dsk="${_ds%%\"*}"
+        grep -q "\"$_dsk\"" "$_zprof/user.js" 2>/dev/null || echo "user_pref(\"$_ds);" >> "$_zprof/user.js"
+    done
+done &
+
+# Live-update Cavasik colors (matugen already regenerated ~/.config/cavasik/colors.rgb)
+dbus-send --session --type=method_call --dest="io.github.TheWisker.Cavasik" \
+    "/io/github/TheWisker/Cavasik" "io.github.TheWisker.Cavasik.set_fg_colors" \
+    string:"${HOME}/.config/cavasik/colors.rgb" 2>/dev/null &
+
+# Live-reload any running nvim instances (via the --listen sockets).
+for sock in /tmp/nvim-"$USER"/*.sock; do
+    [[ -S "$sock" ]] || continue
+    nvim --server "$sock" --remote-send ':OmarchyReloadTheme<CR>' 2>/dev/null &
+done
+
+wait
+
+echo "Done!"

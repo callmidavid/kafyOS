@@ -1,0 +1,68 @@
+set notification-error-bg       "{{colors.error.default.hex}}"
+set notification-error-fg       "{{colors.on_error.default.hex}}"
+set notification-warning-bg     "{{colors.tertiary.default.hex}}"
+set notification-warning-fg     "{{colors.on_tertiary.default.hex}}"
+set notification-bg             "{{colors.surface.default.hex}}"
+set notification-fg             "{{colors.on_surface.default.hex}}"
+
+set completion-bg               "{{colors.surface_container.default.hex}}"
+set completion-fg               "{{colors.on_surface.default.hex}}"
+set completion-group-bg         "{{colors.surface_container.default.hex}}"
+set completion-group-fg         "{{colors.secondary.default.hex}}"
+set completion-highlight-bg     "{{colors.primary.default.hex}}"
+set completion-highlight-fg     "{{colors.on_primary.default.hex}}"
+
+set index-bg                    "{{colors.surface.default.hex}}"
+set index-fg                    "{{colors.on_surface.default.hex}}"
+set index-active-bg             "{{colors.primary_container.default.hex}}"
+set index-active-fg             "{{colors.on_primary_container.default.hex}}"
+
+set inputbar-bg                 "{{colors.surface_container.default.hex}}"
+set inputbar-fg                 "{{colors.on_surface.default.hex}}"
+set statusbar-bg                "{{colors.surface_container.default.hex}}"
+set statusbar-fg                "{{colors.on_surface.default.hex}}"
+
+set highlight-color             "{{colors.primary.default.hex}}"
+set highlight-active-color      "{{colors.secondary.default.hex}}"
+set default-bg                  "{{colors.surface.default.hex}}"
+set default-fg                  "{{colors.on_surface.default.hex}}"
+set recolor-lightcolor          "{{colors.surface.default.hex}}"
+set recolor-darkcolor           "{{colors.on_surface.default.hex}}"
+
+set render-loading              true
+set recolor                     true
+set recolor-keephue             true
+set adjust-open                 width
+set scroll-page-aware           true
+set selection-clipboard         clipboard
+
+# rice: basename in statusbar (z-library paths are endless), % position,
+# comfortable padding + terminal-matched font
+set font                        "FiraCode Nerd Font 10"
+set statusbar-basename          true
+set statusbar-page-percent      true
+set statusbar-h-padding         10
+set statusbar-v-padding         6
+set scroll-step                 60
+set zoom-min                    20
+set zoom-max                    500
+
+# n/N flip pages (search-match nav moves to t/T)
+map n navigate next
+map N navigate previous
+map t search next
+map T search previous
+
+# ---- reading room: immersion + flow (static UX, colors stay matugen) ----
+set window-title-basename          true
+set scroll-full-overlap            0.15
+set font                           "FiraCode Nerd Font 11"
+set guioptions                     "s"
+set show-hidden                    false
+set zoom-step                      10
+
+# vim-flow nav (n/N stay page-flip, t/T stay search-match)
+map d scroll half-down
+map u scroll half-up
+map f toggle_fullscreen
+map i toggle_index

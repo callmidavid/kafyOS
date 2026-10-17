@@ -1,0 +1,602 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls
+
+// Dictionary — instant word lookup via dictionaryapi.dev (no key, no auth),
+// related words via Datamuse. Type + Enter, synonyms/antonyms/related chips
+// are clickable (drill down without retyping), audio plays via mpv.
+// Session cache: repeat lookups never hit the network twice.
+FloatingWindow {
+    id: root
+    property var colors
+    property bool open: false
+
+    // state: idle | loading | done | error
+    property string state: "idle"
+    property string errMsg: ""
+    property var entry: null          // {word, phonetic, audio, meanings[], sourceUrl}
+    property var relatedSyn: []
+    property var relatedSound: []
+    property var history: []
+    property var cache: ({})
+
+    title: "Dictionary"
+    implicitWidth: 560
+    implicitHeight: 500
+    minimumSize: Qt.size(480, 400)
+    maximumSize: Qt.size(700, 620)
+    color: "transparent"
+    visible: root.open || closeAnim.running
+
+    // IPC lives in shell.qml (lazy Loader owns open state) — no local handler:
+    // a second target:"dict" handler fights the shell one and toggles blind.
+
+    onOpenChanged: {
+        if (open) { Qt.callLater(function() { searchField.forceActiveFocus() }); openAnim.restart() }
+        else closeAnim.restart()
+    }
+
+    // --- HTTP via curl Process, not QML XHR: Qt's network stack fails
+    // these hosts with status 0 (verified in qslog), while curl works.
+    // Same Process-driven pattern as every other module in this shell.
+    property bool dictBusy: false
+    property string dictQueued: ""
+    property bool mirror: false
+    property int _seq: 0
+    property int _dictSeq: 0
+    property int _wikiSeq: 0
+    property bool dmBusy: false
+    property var dmQueued: null
+    property string _dmRel: ""
+    property string _dmW: ""
+    property int _dmSeq: 0
+    property string _dmKind: ""
+
+    Process {
+        id: dictProc
+        onExited: function(code) { console.log("DICT exited code=" + code + " busy=" + root.dictBusy) }
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                root.dictBusy = false
+                if (root.dictQueued !== "") {
+                    var q = root.dictQueued
+                    root.dictQueued = ""
+                    root.runDict(q)
+                    return
+                }
+                if (root.state !== "loading" || root._dictSeq !== root._seq) return
+                var trimmed = String(text).trim()
+                var idx = trimmed.lastIndexOf("\n")
+                var code = idx !== -1 ? trimmed.slice(idx + 1).trim() : ""
+                var body = idx !== -1 ? trimmed.slice(0, idx) : trimmed
+                console.log("DICT code=" + code + " len=" + body.length + (root.mirror ? " mirror" : ""))
+                if (root.mirror) root.onWikiResult(code, body)
+                else root.onDictResult(code, body)
+            }
+        }
+    }
+    Process {
+        id: dmProc
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                root.dmBusy = false
+                var words = []
+                try {
+                    var arr = JSON.parse(text)
+                    for (var i = 0; i < arr.length && words.length < 8; i++)
+                        if (arr[i].word) words.push(arr[i].word)
+                } catch (e) {}
+                if (root._dmSeq === root._seq) {
+                    if (root._dmKind === "syn") {
+                        root.relatedSyn = words
+                        root.writeCache()
+                        root.fetchDm("sl", root._dmW, root._dmSeq, "sound")
+                    } else {
+                        root.relatedSound = words
+                        root.writeCache()
+                    }
+                }
+                if (root.dmQueued !== null) {
+                    var nq = root.dmQueued
+                    root.dmQueued = null
+                    root.fetchDm(nq.rel, nq.w, nq.seq, nq.kind)
+                }
+            }
+        }
+    }
+    function runDict(w) {
+        console.log("DICT runDict w=" + w + " busy=" + root.dictBusy)
+        if (root.dictBusy) { root.dictQueued = w; return }
+        root.dictBusy = true
+        root.dictQueued = ""
+        root.mirror = false
+        root._dictSeq = root._seq
+        dictProc.command = ["curl", "-s", "--max-time", "10", "-w", "\n%{http_code}",
+            "https://api.dictionaryapi.dev/api/v2/entries/en/" + w]
+        dictProc.running = true
+    }
+    function onDictResult(code, body) {
+        var w = searchField.text.trim().toLowerCase()
+        if (code === "200") {
+            try {
+                root.applyEntry(JSON.parse(body))
+            } catch (e) {
+                root.runWiki(w)
+            }
+        } else {
+            root.runWiki(w)
+        }
+    }
+    // Wiktionary mirror — dictionaryapi.dev stalls from some routes;
+    // this answers in <1s with plain definitions (no audio/synonyms).
+    Process {
+        id: wikiProc
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                if (root.state !== "loading" || root._wikiSeq !== root._seq) return
+                var trimmed = String(text).trim()
+                var idx = trimmed.lastIndexOf("\n")
+                var code = idx !== -1 ? trimmed.slice(idx + 1).trim() : ""
+                var body = idx !== -1 ? trimmed.slice(0, idx) : trimmed
+                root.onWikiResult(code, body)
+            }
+        }
+    }
+    function runWiki(w) {
+        if (wikiProc.running) return
+        root._wikiSeq = root._seq
+        wikiProc.command = ["curl", "-s", "--max-time", "15", "-w", "\n%{http_code}",
+            "https://en.wiktionary.org/api/rest_v1/page/definition/" + w]
+        wikiProc.running = true
+    }
+    function onWikiResult(code, body) {
+        var w = searchField.text.trim().toLowerCase()
+        if (code === "200") {
+            try {
+                root.applyWikiEntry(JSON.parse(body), w)
+                return
+            } catch (e) {}
+        }
+        if (root.dictBusy) return
+        root.state = "error"
+        if (code === "404")
+            root.errMsg = "No definition found for \"" + w + "\". Check the spelling."
+        else
+            root.errMsg = "Both sources failed (network error). Check your connection and retry."
+    }
+    function stripHtml(s) { return String(s || "").replace(/<[^>]*>/g, "") }
+    function applyWikiEntry(obj, w) {
+        var en = obj.en || []
+        var meanings = []
+        for (var m = 0; m < en.length; m++) {
+            var defs = []
+            var dd = en[m].definitions || []
+            for (var k = 0; k < dd.length && defs.length < 5; k++) {
+                var dt = stripHtml(dd[k].definition)
+                if (dt === "") continue
+                var exs = dd[k].examples || []
+                defs.push({ def: dt, example: exs.length > 0 ? stripHtml(exs[0]) : "", synonyms: [], antonyms: [] })
+            }
+            if (defs.length > 0)
+                meanings.push({ pos: en[m].partOfSpeech || "", defs: defs, synonyms: [], antonyms: [] })
+        }
+        if (meanings.length === 0) {
+            state = "error"
+            errMsg = "No English definitions found for \"" + w + "\"."
+            return
+        }
+        entry = { word: w, phonetic: "", audio: "", meanings: meanings,
+                  sourceUrl: "https://en.wiktionary.org/wiki/" + w }
+        state = "done"
+        console.log("DICT done (wiki) word=" + w + " meanings=" + meanings.length)
+        touchHistory(w)
+        fireRelated(w, entry)
+    }
+
+    function shQuote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
+
+    function lookup(raw) {
+        console.log("DICT lookup called raw=" + raw)
+        var w = String(raw || "").trim().toLowerCase()
+        if (w === "") return
+        if (!/^[a-zA-Z]+([ '-][a-zA-Z]+)*$/.test(w)) {
+            state = "error"
+            entry = null
+            errMsg = "Letters, hyphens and apostrophes only — try a single English word."
+            return
+        }
+        if (searchField.text !== w) searchField.text = w
+        var hit = cache[w]
+        if (hit) {
+            _seq++
+            entry = hit.entry
+            relatedSyn = hit.syn
+            relatedSound = hit.sound
+            state = "done"
+            errMsg = ""
+            touchHistory(w)
+            return
+        }
+        _seq++
+        state = "loading"
+        errMsg = ""
+        entry = null
+        relatedSyn = []
+        relatedSound = []
+        root.runDict(w)
+        root.runWiki(w)
+    }
+
+    function applyEntry(arr) {
+        if (!arr || arr.length === 0) {
+            state = "error"
+            errMsg = "Empty response. Try again."
+            return
+        }
+        var d = arr[0]
+        var phonetic = d.phonetic || ""
+        var audio = ""
+        var phs = d.phonetics || []
+        for (var i = 0; i < phs.length; i++) {
+            if (!phonetic && phs[i].text) phonetic = phs[i].text
+            if (!audio && phs[i].audio) audio = phs[i].audio
+        }
+        var meanings = []
+        var ms = d.meanings || []
+        for (var m = 0; m < ms.length; m++) {
+            var defs = []
+            var dd = ms[m].definitions || []
+            for (var k = 0; k < dd.length; k++) {
+                defs.push({
+                    def: dd[k].definition || "",
+                    example: dd[k].example || "",
+                    synonyms: (dd[k].synonyms || []).slice(0, 6),
+                    antonyms: (dd[k].antonyms || []).slice(0, 6)
+                })
+            }
+            meanings.push({
+                pos: ms[m].partOfSpeech || "",
+                defs: defs,
+                synonyms: (ms[m].synonyms || []).slice(0, 8),
+                antonyms: (ms[m].antonyms || []).slice(0, 8)
+            })
+        }
+        var src = ""
+        if (d.sourceUrls && d.sourceUrls.length > 0) src = d.sourceUrls[0]
+        var e = { word: d.word || "", phonetic: phonetic, audio: audio, meanings: meanings, sourceUrl: src }
+        entry = e
+        state = "done"
+        console.log("DICT done word=" + e.word + " meanings=" + meanings.length)
+        touchHistory(e.word)
+        fireRelated(e.word, e)
+    }
+
+    function touchHistory(w) {
+        var h = []
+        h.push(w)
+        for (var i = 0; i < history.length; i++)
+            if (history[i] !== w) h.push(history[i])
+        history = h.slice(0, 12)
+    }
+
+    function writeCache() {
+        if (!entry || !entry.word) return
+        cache[entry.word] = { entry: entry, syn: relatedSyn, sound: relatedSound }
+    }
+
+    function fireRelated(w, e) {
+        var seq = _seq
+        fetchDm("rel_syn", w, seq, "syn")
+    }
+
+    function fetchDm(rel, w, seq, kind) {
+        if (root.dmBusy) { root.dmQueued = { rel: rel, w: w, seq: seq, kind: kind }; return }
+        root.dmBusy = true
+        root.dmQueued = null
+        root._dmRel = rel
+        root._dmW = w
+        root._dmSeq = seq
+        root._dmKind = kind
+        dmProc.command = ["curl", "-s", "--max-time", "15",
+            "https://api.datamuse.com/words?" + rel + "=" + w + "&max=8"]
+        dmProc.running = true
+    }
+
+    function playAudio() {
+        if (entry && entry.audio)
+            Quickshell.execDetached(["mpv", "--no-video", "--really-quiet", entry.audio])
+    }
+
+    function copyEntry() {
+        if (!entry || !entry.meanings.length || !entry.meanings[0].defs.length) return
+        var txt = entry.word + " (" + entry.meanings[0].pos + ") — " + entry.meanings[0].defs[0].def
+        Quickshell.execDetached(["sh", "-c", "printf %s " + shQuote(txt) + " | wl-copy && notify-send -u low -a 'Dictionary' 'Copied' " + shQuote(entry.word)])
+    }
+
+    Rectangle {
+        id: card
+        anchors.fill: parent
+        radius: 16
+        color: colors.alpha(colors.surface, 0.52)
+        border.width: 1
+        border.color: colors.alpha(colors.outline, 0.15)
+        // bezier pair — open pops with overshoot bounce, close hurries out
+        ParallelAnimation {
+            id: openAnim
+            NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.32, 0.72, 0, 1] }
+            NumberAnimation { target: card; property: "scale"; from: 0.94; to: 1; duration: 280; easing.type: Easing.Bezier; easing.bezierCurve: [0.34, 1.35, 0.64, 1] }
+        }
+        ParallelAnimation {
+            id: closeAnim
+            NumberAnimation { target: card; property: "opacity"; to: 0; duration: 160; easing.type: Easing.Bezier; easing.bezierCurve: [0.32, 0.72, 0, 1] }
+            NumberAnimation { target: card; property: "scale"; to: 0.94; duration: 180; easing.type: Easing.Bezier; easing.bezierCurve: [0.32, 0.72, 0, 1] }
+        }
+        focus: root.open
+        Keys.onEscapePressed: root.open = false
+        Keys.onPressed: (e) => {
+            if (searchField.activeFocus) return
+            if (e.text === "p" || e.text === "P") { root.playAudio(); e.accepted = true }
+            else if (e.text === "y" || e.text === "Y") { root.copyEntry(); e.accepted = true }
+            else if ((e.text === "r" || e.text === "R") && root.state === "error") { root.lookup(searchField.text); e.accepted = true }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 8
+
+            // HEIGHT BUDGET 500: margins 28 + prompt 34 + hairline 9 + history 24
+            //   + body (fill) + footer 16 + 5x8 gaps. FOCAL: the word line.
+            // prompt
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Text { text: "dict>"; color: colors.primary; font.family: colors.fontSans; font.pixelSize: 14; font.weight: Font.Bold; Layout.alignment: Qt.AlignVCenter }
+                TextField {
+                    id: searchField
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    placeholderText: "type a word…"
+                    placeholderTextColor: colors.alpha(colors.outline, 0.5)
+                    color: colors.foreground
+                    font.family: colors.fontSans
+                    font.pixelSize: 14
+                    selectByMouse: true
+                    background: null
+                    onAccepted: root.lookup(text)
+                    Keys.onEscapePressed: card.forceActiveFocus()
+                }
+                Rectangle {
+                    width: 64; height: 28; radius: 9
+                    color: goMa.containsMouse ? colors.alpha(colors.tertiary, 0.28) : colors.alpha(colors.tertiary, 0.13)
+                    border.width: 1; border.color: colors.alpha(colors.tertiary, 0.4)
+                    Text { anchors.centerIn: parent; text: root.state === "loading" ? "…" : "define"; color: colors.tertiary; font.family: colors.fontSans; font.pixelSize: 10; font.weight: Font.Bold }
+                    MouseArea { id: goMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(searchField.text) }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: colors.alpha(colors.outline, 0.12) }
+
+            // history line
+            RowLayout {
+                visible: root.history.length > 0
+                Layout.fillWidth: true
+                spacing: 4
+                Text { text: "history:"; color: colors.alpha(colors.outline, 0.55); font.family: colors.fontSans; font.pixelSize: 10; Layout.alignment: Qt.AlignVCenter }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Repeater {
+                        model: root.history
+                        delegate: RowLayout {
+                            required property var modelData
+                            required property int index
+                            spacing: 4
+                            Text {
+                                text: modelData
+                                color: histMa.containsMouse ? colors.primary : colors.alpha(colors.foreground, 0.85)
+                                font.underline: true
+                                font.family: colors.fontSans
+                                font.pixelSize: 11
+                                MouseArea { id: histMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(modelData) }
+                            }
+                            Text { visible: index < root.history.length - 1; text: "·"; color: colors.alpha(colors.outline, 0.4); font.family: colors.fontSans; font.pixelSize: 10 }
+                        }
+                    }
+                }
+            }
+
+            // idle
+            Item {
+                visible: root.state === "idle"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Text { anchors.centerIn: parent; text: "type a word after the prompt."; color: colors.alpha(colors.outline, 0.55); font.family: colors.fontSans; font.pixelSize: 11 }
+            }
+
+            // loading
+            Item {
+                visible: root.state === "loading"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                RowLayout {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        text: "↻"; color: colors.tertiary; font.family: colors.fontSans; font.pixelSize: 18
+                        RotationAnimation on rotation { running: root.state === 'loading'; loops: Animation.Infinite; duration: 1200; from: 0; to: 360 }
+                    }
+                    Text { text: root.mirror ? "trying mirror…" : "resolving…"; color: colors.alpha(colors.outline, 0.6); font.family: colors.fontSans; font.pixelSize: 11 }
+                }
+            }
+
+            // error — plain red line + retry, same footprint as body
+            Item {
+                visible: root.state === "error"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text { text: root.errMsg; color: colors.error; font.family: colors.fontSans; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap; width: 420; Layout.alignment: Qt.AlignHCenter }
+                    Rectangle {
+                        width: 64; height: 26; radius: 9
+                        color: retryMa.containsMouse ? colors.alpha(colors.tertiary, 0.28) : colors.alpha(colors.tertiary, 0.12)
+                        border.width: 1; border.color: colors.alpha(colors.tertiary, 0.4)
+                        Text { anchors.centerIn: parent; text: "retry"; color: colors.tertiary; font.family: colors.fontSans; font.pixelSize: 10; font.weight: Font.Bold }
+                        MouseArea { id: retryMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(searchField.text) }
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                }
+            }
+
+            // results
+            ScrollView {
+                id: dictScroll
+                visible: root.state === "done" && root.entry !== null
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                contentWidth: availableWidth
+                contentHeight: resultCol.implicitHeight
+                ColumnLayout {
+                    id: resultCol
+                    width: dictScroll.availableWidth
+                    spacing: 4
+                    Text {
+                        text: root.entry ? root.entry.word.toUpperCase() + (root.entry.phonetic !== '' ? '  ' + root.entry.phonetic : '') : ''
+                        color: colors.foreground
+                        font.family: colors.fontSans
+                        font.pixelSize: 20
+                        font.weight: Font.ExtraBold
+                        font.letterSpacing: 0.5
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Rectangle {
+                            visible: root.entry && root.entry.audio !== ""
+                            width: 30; height: 30; radius: 15
+                            color: audioMa.containsMouse ? colors.alpha(colors.tertiary, 0.28) : colors.alpha(colors.tertiary, 0.12)
+                            border.width: 1; border.color: colors.alpha(colors.tertiary, 0.4)
+                            Text { anchors.centerIn: parent; text: ""; color: colors.tertiary; font.family: "Phosphor"; font.pixelSize: 15 }
+                            MouseArea { id: audioMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.playAudio() }
+                        }
+                        Text {
+                            text: "copy definition"
+                            color: colors.secondary
+                            font.underline: true
+                            font.family: colors.fontSans
+                            font.pixelSize: 11
+                            MouseArea { id: copyMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.copyEntry() }
+                        }
+                    }
+                    Repeater {
+                        model: root.entry ? root.entry.meanings : []
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text { text: (modelData.pos || "").toUpperCase(); color: colors.tertiary; font.family: colors.fontSans; font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 1.2 }
+                            Repeater {
+                                model: modelData.defs
+                                delegate: ColumnLayout {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    spacing: 1
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+                                        Text { text: (index + 1) + "."; color: colors.alpha(colors.outline, 0.5); font.family: colors.fontSans; font.pixelSize: 11; font.weight: Font.Bold; Layout.alignment: Qt.AlignTop }
+                                        Text { text: modelData.def; color: colors.foreground; font.family: colors.fontSans; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    }
+                                    Text {
+                                        visible: modelData.example !== ""
+                                        text: "eg. \"" + modelData.example + "\""
+                                        color: colors.alpha(colors.outline, 0.7); font.family: colors.fontSans; font.pixelSize: 12; font.italic: true
+                                        wrapMode: Text.WordWrap; Layout.fillWidth: true; Layout.leftMargin: 22
+                                    }
+                                }
+                            }
+                            Flow {
+                                visible: modelData.synonyms.length > 0 || modelData.antonyms.length > 0
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 22
+                                spacing: 6
+                                Repeater {
+                                    model: modelData.synonyms
+                                    delegate: Text {
+                                        required property var modelData
+                                        text: modelData
+                                        color: colors.secondary
+                                        font.underline: true
+                                        font.family: colors.fontSans
+                                        font.pixelSize: 12
+                                        MouseArea { id: synMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(modelData) }
+                                    }
+                                }
+                                Repeater {
+                                    model: modelData.antonyms
+                                    delegate: Text {
+                                        required property var modelData
+                                        text: modelData
+                                        color: colors.error
+                                        font.underline: true
+                                        font.family: colors.fontSans
+                                        font.pixelSize: 12
+                                        MouseArea { id: antMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(modelData) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Flow {
+                        visible: root.relatedSyn.length > 0 || root.relatedSound.length > 0
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Text { visible: root.relatedSyn.length > 0; text: "related:"; color: colors.alpha(colors.outline, 0.55); font.family: colors.fontSans; font.pixelSize: 10 }
+                        Repeater {
+                            model: root.relatedSyn
+                            delegate: Text {
+                                required property var modelData
+                                text: modelData
+                                color: colors.primary
+                                font.underline: true
+                                font.family: colors.fontSans
+                                font.pixelSize: 12
+                                MouseArea { id: rsMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.lookup(modelData) }
+                            }
+                        }
+                    }
+                    Text {
+                        visible: root.entry && root.entry.sourceUrl !== ""
+                        text: "source: wiktionary (open)"
+                        color: colors.alpha(colors.outline, 0.5)
+                        font.family: colors.fontSans
+                        font.pixelSize: 9
+                        MouseArea { anchors.fill: parent; hoverEnabled: true; onClicked: if (root.entry) Quickshell.execDetached(["xdg-open", root.entry.sourceUrl]) }
+                    }
+                }
+            }
+
+            Text {
+                text: "enter define · esc exits field, again closes · p play · y copy · r retry"
+                color: colors.alpha(colors.outline, 0.4)
+                font.family: colors.fontSans
+                font.pixelSize: 9
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+
+        }
+    }
+}

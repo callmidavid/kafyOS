@@ -1,0 +1,972 @@
+/* ── Matugen color variables ─────────────────────────────── */
+@define-color background     {{ colors.background.default.hex }};
+@define-color foreground     {{ colors.on_background.default.hex }};
+@define-color black          {{ colors.background.default.hex }};
+@define-color red            {{ colors.error.default.hex }};
+@define-color green          {{ colors.secondary.default.hex }};
+@define-color yellow         {{ colors.tertiary.default.hex }};
+@define-color blue           {{ colors.primary.default.hex }};
+@define-color magenta        {{ colors.primary.default.hex }};
+@define-color cyan           {{ colors.secondary.default.hex }};
+@define-color white          {{ colors.on_background.default.hex }};
+@define-color bright_black   {{ colors.surface_variant.default.hex }};
+@define-color bright_red     {{ colors.error.default.hex }};
+@define-color bright_green   {{ colors.secondary.default.hex }};
+@define-color bright_yellow  {{ colors.tertiary.default.hex }};
+@define-color bright_blue    {{ colors.primary.default.hex }};
+@define-color bright_magenta {{ colors.primary.default.hex }};
+@define-color bright_cyan    {{ colors.secondary.default.hex }};
+@define-color bright_white   {{ colors.on_background.default.hex }};
+
+@define-color surface        {{ colors.surface.default.hex }};
+@define-color surface_variant {{ colors.surface_variant.default.hex }};
+@define-color outline        {{ colors.outline.default.hex }};
+@define-color primary        {{ colors.primary.default.hex }};
+@define-color on_primary     {{ colors.on_primary.default.hex }};
+@define-color error          {{ colors.error.default.hex }};
+@define-color secondary      {{ colors.secondary.default.hex }};
+@define-color tertiary       {{ colors.tertiary.default.hex }};
+
+@define-color accent_bg_color @blue;
+@define-color accent_fg_color @on_primary;
+@define-color accent_color @blue;
+
+/* ── Foundation: named colors everything inherits ────────── */
+@define-color theme_bg_color @surface;
+@define-color theme_fg_color @foreground;
+@define-color theme_base_color @background;
+@define-color theme_text_color @foreground;
+@define-color theme_selected_bg_color alpha(@primary, 0.3);
+@define-color theme_selected_fg_color @primary;
+@define-color theme_unfocused_bg_color @surface;
+@define-color theme_unfocused_fg_color alpha(@foreground, 0.6);
+@define-color theme_unfocused_base_color @background;
+@define-color theme_unfocused_text_color alpha(@foreground, 0.6);
+@define-color theme_unfocused_selected_bg_color alpha(@primary, 0.2);
+@define-color theme_unfocused_selected_fg_color @primary;
+@define-color sidebar_bg_color shade(@surface, 1.18);
+@define-color sidebar_fg_color @foreground;
+@define-color sidebar_backdrop_color shade(@surface, 1.1);
+@define-color sidebar_shade_color alpha(@background, 0.5);
+@define-color headerbar_bg_color shade(@surface, 1.18);
+@define-color headerbar_fg_color @foreground;
+@define-color headerbar_backdrop_color @surface;
+@define-color headerbar_shade_color alpha(@background, 0.5);
+@define-color menubar_bg_color @surface;
+@define-color menubar_fg_color @foreground;
+@define-color toolbar_bg_color shade(@surface, 1.12);
+@define-color toolbar_fg_color @foreground;
+@define-color view_hover_color alpha(@surface_variant, 0.4);
+@define-color view_active_color alpha(@primary, 0.25);
+@define-color view_selected_color alpha(@primary, 0.3);
+@define-color view_selected_hover_color alpha(@primary, 0.35);
+@define-color borders alpha(@outline, 0.2);
+@define-color unfocused_borders alpha(@outline, 0.12);
+@define-color warning_color @primary;
+@define-color error_color @error;
+@define-color success_color @secondary;
+@define-color destructive_color @error;
+@define-color content_view_bg @background;
+@define-color text_view_bg @background;
+@define-color wm_bg_a @surface;
+@define-color wm_bg_b @surface;
+
+/* ── Base ────────────────────────────────────────────────── */
+* {
+    outline: none;
+    -gtk-outline-radius: 8px;
+    -gtk-icon-palette: success @secondary, warning @tertiary, error @error;
+}
+
+window, .window,
+dialog, messagedialog,
+assistant, printdialog {
+    background-color: @background;
+    color: @foreground;
+    border-radius: 12px;
+}
+
+/* ── No white, ever: every scrollable/text surface defaults dark ── */
+viewport,
+scrolledwindow viewport,
+stack,
+paned,
+layout,
+textview.view,
+textview text {
+    background-color: @background;
+    color: @foreground;
+}
+
+textview.view selection,
+textview text selection {
+    background-color: alpha(@primary, 0.35);
+    color: @foreground;
+}
+
+dialog viewport,
+messagedialog viewport {
+    background-color: transparent;
+}
+
+window:backdrop {
+    background-color: @background;
+    color: alpha(@foreground, 0.75);
+}
+
+*:disabled {
+    color: alpha(@foreground, 0.4);
+}
+
+button:disabled,
+entry:disabled {
+    background: alpha(@surface_variant, 0.15);
+    border-color: alpha(@outline, 0.1);
+}
+
+/* ── Headerbar / toolbar / menubar ───────────────────────── */
+headerbar,
+toolbar,
+menubar,
+.titlebar {
+    background-image: none;
+    background-color: @headerbar_bg_color;
+    color: @headerbar_fg_color;
+    border-bottom: 1px solid alpha(@outline, 0.15);
+    box-shadow: none;
+    padding: 6px 12px;
+    min-height: 40px;
+}
+
+headerbar:backdrop {
+    background-color: @headerbar_backdrop_color;
+    color: alpha(@foreground, 0.6);
+}
+
+headerbar .title {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+headerbar .subtitle {
+    font-size: 10px;
+    color: alpha(@foreground, 0.6);
+}
+
+headerbar button {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: alpha(@foreground, 0.7);
+    min-height: 30px;
+    min-width: 30px;
+    padding: 5px 10px;
+    transition: 150ms ease;
+}
+
+headerbar button:hover {
+    background: alpha(@surface_variant, 0.5);
+    color: @foreground;
+}
+
+headerbar button:active,
+headerbar button:checked {
+    background: alpha(@primary, 0.2);
+    color: @primary;
+}
+
+toolbar button,
+menubar > menuitem {
+    border-radius: 8px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+button {
+    background: alpha(@surface_variant, 0.3);
+    border: 1px solid alpha(@outline, 0.15);
+    border-radius: 8px;
+    color: @foreground;
+    min-height: 32px;
+    padding: 7px 14px;
+    font-size: 12px;
+    transition: 150ms ease;
+    box-shadow: none;
+}
+
+button:hover {
+    background: alpha(@surface_variant, 0.5);
+    border-color: alpha(@outline, 0.3);
+}
+
+button:active,
+button:checked {
+    background: alpha(@primary, 0.25);
+    border-color: alpha(@primary, 0.4);
+    color: @primary;
+}
+
+button.suggested-action {
+    background: @primary;
+    color: @on_primary;
+    border: none;
+}
+
+button.suggested-action:hover {
+    background: alpha(@primary, 0.85);
+    color: @on_primary;
+}
+
+button.destructive-action {
+    background: alpha(@error, 0.15);
+    color: @error;
+    border-color: alpha(@error, 0.3);
+}
+
+button.flat {
+    background: transparent;
+    border-color: transparent;
+}
+
+button.flat:hover {
+    background: alpha(@surface_variant, 0.4);
+}
+
+button.link,
+link {
+    color: @primary;
+}
+
+button image {
+    color: inherit;
+}
+
+/* linked (pathbars, stacks, sugar) */
+linked > button {
+    border-radius: 0;
+}
+
+linked > button:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+linked > button:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+linked > button:only-child {
+    border-radius: 8px;
+}
+
+stackswitcher button:checked,
+stackswitcher button:active {
+    background: alpha(@primary, 0.25);
+    color: @primary;
+}
+
+/* ── Entries ─────────────────────────────────────────────── */
+entry {
+    background: alpha(@surface_variant, 0.2);
+    border: 1px solid alpha(@outline, 0.2);
+    border-radius: 8px;
+    color: @foreground;
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 12px;
+    caret-color: @primary;
+    transition: 150ms ease;
+}
+
+entry:focus {
+    border-color: alpha(@primary, 0.6);
+    background: alpha(@surface_variant, 0.3);
+    box-shadow: 0 0 0 2px alpha(@primary, 0.12);
+}
+
+entry selection {
+    background-color: alpha(@primary, 0.35);
+    color: @foreground;
+}
+
+entry progress {
+    background-color: alpha(@primary, 0.2);
+    border: none;
+}
+
+spinbutton entry,
+spinbutton button {
+    min-height: 26px;
+    padding: 3px 6px;
+}
+
+/* ── Views: lists, trees, icons, grids ───────────────────── */
+listview,
+listbox,
+treeview,
+iconview,
+gridview {
+    background-color: transparent;
+    color: @foreground;
+    font-size: 12px;
+}
+
+listview row,
+listboxrow {
+    padding: 7px 12px;
+    border-radius: 8px;
+    transition: 150ms ease;
+}
+
+listview row:hover,
+listboxrow:hover,
+treeview:hover,
+iconview:hover {
+    background-color: alpha(@surface_variant, 0.4);
+}
+
+listview row:selected,
+listboxrow:selected,
+treeview:selected,
+iconview:selected,
+gridview child:selected {
+    background-color: alpha(@primary, 0.28);
+    color: @primary;
+}
+
+treeview header button,
+treeview header button:hover {
+    background: transparent;
+    border: none;
+    color: alpha(@foreground, 0.55);
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+treeview separator,
+treeview grid lines {
+    color: alpha(@outline, 0.12);
+}
+
+expander arrow {
+    color: alpha(@foreground, 0.6);
+}
+
+/* ── Sidebar (elevated, never a black hole) ──────────────── */
+.sidebar,
+placessidebar,
+navigation-sidebar,
+placesview,
+.source-list {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
+    border: none;
+}
+
+.sidebar row,
+placessidebar row,
+navigation-sidebar row {
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    transition: 150ms ease;
+}
+
+.sidebar row:hover,
+placessidebar row:hover,
+navigation-sidebar row:hover {
+    background-color: alpha(@surface_variant, 0.35);
+}
+
+.sidebar row:selected,
+placessidebar row:selected,
+navigation-sidebar row:selected {
+    background-color: alpha(@primary, 0.25);
+    color: @primary;
+}
+
+.sidebar row:selected label,
+placessidebar row:selected label {
+    color: @primary;
+}
+
+placessidebar:selected {
+    background-color: transparent;
+}
+
+/* ── Notebook tabs ───────────────────────────────────────── */
+notebook {
+    background-color: transparent;
+}
+
+notebook header {
+    background-color: transparent;
+    border-bottom: 1px solid alpha(@outline, 0.1);
+}
+
+notebook tab {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: alpha(@foreground, 0.6);
+    border: none;
+    transition: 150ms ease;
+}
+
+notebook tab:hover {
+    color: @foreground;
+}
+
+notebook tab:checked {
+    color: @primary;
+    border-bottom: 2px solid @primary;
+}
+
+notebook tab button.flat {
+    min-height: 18px;
+    min-width: 18px;
+    padding: 0;
+}
+
+/* ── Menus & popovers ────────────────────────────────────── */
+menu,
+.menu,
+popover,
+popover.background {
+    background-color: @surface;
+    border: 1px solid alpha(@outline, 0.15);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 4px 24px alpha(#000000, 0.35);
+}
+
+menuitem,
+.menuitem {
+    padding: 7px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    color: @foreground;
+    transition: 150ms ease;
+}
+
+menuitem:hover,
+.menuitem:hover {
+    background: alpha(@surface_variant, 0.4);
+}
+
+menuitem:disabled {
+    color: alpha(@foreground, 0.35);
+}
+
+menu separator {
+    background: alpha(@outline, 0.12);
+}
+
+modelbutton {
+    border-radius: 8px;
+}
+
+modelbutton:hover {
+    background: alpha(@surface_variant, 0.4);
+}
+
+/* ── Checks, radios, switches, scales ────────────────────── */
+checkbutton check,
+radiobutton radio {
+    background: alpha(@surface_variant, 0.3);
+    border: 1px solid alpha(@outline, 0.3);
+    border-radius: 4px;
+    min-height: 16px;
+    min-width: 16px;
+    transition: 150ms ease;
+}
+
+radiobutton radio {
+    border-radius: 50%;
+}
+
+checkbutton check:checked,
+radiobutton radio:checked {
+    background: @primary;
+    border-color: @primary;
+    color: @on_primary;
+}
+
+scale trough {
+    background: alpha(@surface_variant, 0.5);
+    border-radius: 4px;
+    min-height: 7px;
+    min-width: 7px;
+}
+
+scale highlight {
+    background: alpha(@primary, 0.9);
+    border-radius: 4px;
+}
+
+scale slider {
+    background: @background;
+    border: 2px solid @primary;
+    border-radius: 50%;
+    min-height: 16px;
+    min-width: 16px;
+}
+
+levelbar block {
+    border-radius: 4px;
+    min-height: 6px;
+}
+
+levelbar block.filled {
+    background: @primary;
+    border: none;
+}
+
+levelbar block.empty {
+    background: alpha(@surface_variant, 0.5);
+    border: none;
+}
+
+switch {
+    background: alpha(@surface_variant, 0.5);
+    border: 1px solid alpha(@outline, 0.25);
+    border-radius: 14px;
+    min-width: 36px;
+    min-height: 20px;
+    transition: 150ms ease;
+}
+
+switch:checked {
+    background: alpha(@primary, 0.85);
+    border-color: @primary;
+}
+
+switch slider {
+    background: @background;
+    border: none;
+    border-radius: 50%;
+    min-width: 14px;
+    min-height: 14px;
+    margin: 2px;
+}
+
+/* ── Progress ────────────────────────────────────────────── */
+progressbar trough {
+    background: alpha(@outline, 0.15);
+    border-radius: 4px;
+    min-height: 6px;
+    min-width: 6px;
+}
+
+progressbar progress {
+    background: @primary;
+    border-radius: 4px;
+    border: none;
+}
+
+progressbar text {
+    color: alpha(@foreground, 0.7);
+    font-size: 10px;
+}
+
+/* ── Scrollbars: slim, floating, glow on hover ──────────── */
+scrollbar {
+    background: transparent;
+    border: none;
+}
+
+scrollbar trough {
+    background: transparent;
+    border: none;
+}
+
+scrollbar slider {
+    background: alpha(@outline, 0.28);
+    border: none;
+    border-radius: 99px;
+    min-width: 6px;
+    min-height: 40px;
+    margin: 3px;
+    transition: 150ms ease;
+}
+
+scrollbar slider:hover {
+    background: alpha(@primary, 0.55);
+    min-width: 8px;
+}
+
+scrollbar slider:active,
+scrollbar slider.dragging {
+    background: @primary;
+    min-width: 8px;
+}
+
+scrollbar button,
+scrollbar arrow {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    color: transparent;
+}
+
+scrollbar.overlay-indicator:not(.dragging):not(.hovering) slider {
+    background: alpha(@outline, 0.35);
+    min-width: 4px;
+}
+
+scrollbar.overlay-indicator.dragging slider,
+scrollbar.overlay-indicator.hovering slider {
+    min-width: 8px;
+}
+
+/* ── Tooltip / infobar / status / search ─────────────────── */
+tooltip {
+    background-color: @surface;
+    border: 1px solid alpha(@outline, 0.2);
+    border-radius: 8px;
+    color: @foreground;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+infobar {
+    border: none;
+}
+
+infobar.info,
+infobar.question {
+    background-color: alpha(@primary, 0.12);
+    color: @foreground;
+}
+
+infobar.warning {
+    background-color: alpha(@primary, 0.15);
+    color: @primary;
+}
+
+infobar.error {
+    background-color: alpha(@error, 0.12);
+    color: @error;
+}
+
+statusbar {
+    padding: 5px 12px;
+    font-size: 11px;
+    color: alpha(@foreground, 0.65);
+}
+
+searchbar {
+    background-color: transparent;
+    border-bottom: 1px solid alpha(@outline, 0.12);
+}
+
+/* ── Separators / frames / panes ─────────────────────────── */
+separator {
+    background: alpha(@outline, 0.1);
+    min-height: 1px;
+    min-width: 1px;
+}
+
+frame,
+.frame {
+    border: 1px solid alpha(@outline, 0.15);
+    border-radius: 12px;
+}
+
+paned > separator {
+    background: alpha(@outline, 0.15);
+}
+
+/* ── File chooser (portal upload dialog) ─────────────────── */
+filechooser {
+    font-family: "Inter";
+}
+
+filechooser pathbar button:checked {
+    background: alpha(@primary, 0.25);
+    color: @primary;
+}
+
+filechooser placesview actionbar {
+    background-color: transparent;
+    border-top: 1px solid alpha(@outline, 0.12);
+}
+
+filechooser .dialog-action-box button.suggested-action {
+    background: @primary;
+    color: @on_primary;
+    border: none;
+    border-radius: 8px;
+}
+
+/* ── Nautilus file manager: glass + JetBrains Mono ───────── */
+nautilus-window {
+    background-color: alpha({{ colors.surface.default.hex }}, 0.62);
+}
+
+nautilus-window,
+nautilus-window gridview,
+nautilus-window listview,
+nautilus-window entry,
+nautilus-window button,
+nautilus-window label {
+    font-family: "Inter";
+}
+
+nautilus-window headerbar {
+    background-color: transparent;
+    box-shadow: none;
+    border-bottom: 1px solid alpha({{ colors.outline.default.hex }}, 0.15);
+}
+
+nautilus-window headerbar button:hover {
+    background: alpha({{ colors.surface_variant.default.hex }}, 0.5);
+}
+
+nautilus-window .sidebar,
+nautilus-window navigation-sidebar {
+    background-color: transparent;
+}
+
+nautilus-window row:selected,
+nautilus-window gridview child:selected,
+nautilus-window listview row:selected {
+    background-color: alpha({{ colors.primary.default.hex }}, 0.25);
+    color: {{ colors.primary.default.hex }};
+    border-radius: 8px;
+}
+
+nautilus-window gridview child:hover,
+nautilus-window listview row:hover {
+    background-color: alpha({{ colors.surface_variant.default.hex }}, 0.35);
+    border-radius: 8px;
+}
+
+nautilus-window entry {
+    background: alpha({{ colors.surface_variant.default.hex }}, 0.25);
+    border: 1px solid alpha({{ colors.outline.default.hex }}, 0.2);
+    border-radius: 8px;
+}
+
+nautilus-window entry:focus {
+    border-color: alpha({{ colors.primary.default.hex }}, 0.6);
+}
+
+nautilus-window statusbar {
+    background-color: transparent;
+    border-top: 1px solid alpha({{ colors.outline.default.hex }}, 0.12);
+}
+
+/* ── File chooser base: no white anywhere ────────────────── */
+filechooser,
+filechooser dialog {
+    font-family: "Inter";
+    background-color: {{ colors.surface.default.hex }};
+    color: {{ colors.on_background.default.hex }};
+}
+
+filechooser viewport,
+filechooser scrolledwindow,
+filechooser placesview,
+filechooser stack,
+filechooser box {
+    background-color: transparent;
+}
+
+filechooser treeview.view,
+filechooser iconview.view,
+filechooser .view {
+    background-color: alpha({{ colors.surface.default.hex }}, 0.6);
+    color: {{ colors.on_background.default.hex }};
+}
+
+.sidebar row label,
+placessidebar row label,
+navigation-sidebar row label {
+    color: {{ colors.on_background.default.hex }};
+}
+
+.sidebar row:selected label,
+placessidebar row:selected label,
+navigation-sidebar row:selected label {
+    color: {{ colors.primary.default.hex }};
+}
+
+/* ── File chooser sidebar: same pill design as Thunar ───── */
+filechooser placessidebar,
+filechooser .sidebar {
+    background-color: shade(@surface, 1.18);
+}
+
+filechooser placessidebar row,
+filechooser .sidebar row {
+    padding: 8px 12px;
+    margin: 1px 6px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+filechooser placessidebar row:hover,
+filechooser .sidebar row:hover {
+    background-color: alpha(@surface_variant, 0.35);
+}
+
+filechooser placessidebar row:selected,
+filechooser .sidebar row:selected {
+    background-color: alpha(@primary, 0.30);
+    border-color: alpha(@primary, 0.45);
+}
+
+filechooser placessidebar label,
+filechooser .sidebar label {
+    color: @foreground;
+}
+
+filechooser placessidebar row:selected label,
+filechooser .sidebar row:selected label {
+    color: @primary;
+}
+
+/* ── Thunar file manager ──────────────────────────────── */
+/* Generic toolbar/menubar/sidebar/statusbar rules above already apply
+   (Thunar is GTK3); these refine Thunar-only nodes. Unknown selectors
+   are inert, so this degrades gracefully across Thunar versions. */
+.thunar,
+ThunarWindow {
+    font-family: "Inter";
+    background-color: @background;
+    color: @foreground;
+}
+
+.thunar toolbar {
+    background-color: @toolbar_bg_color;
+    border-bottom: 1px solid alpha(@outline, 0.15);
+    box-shadow: inset 0 -1px 0 alpha(@primary, 0.22);
+    padding: 8px 12px;
+}
+
+.thunar toolbar button {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 10px;
+    min-height: 34px;
+    min-width: 34px;
+    color: alpha(@foreground, 0.75);
+}
+
+.thunar toolbar button:hover {
+    background: alpha(@primary, 0.14);
+    color: @foreground;
+}
+
+.thunar toolbar button:active,
+.thunar toolbar button:checked {
+    background: alpha(@primary, 0.22);
+    color: @primary;
+}
+
+.thunar menubar {
+    background-color: @surface;
+}
+
+.thunar entry {
+    border-radius: 12px;
+    min-height: 36px;
+    background: alpha(@surface_variant, 0.35);
+}
+
+.thunar .linked.path-bar button,
+.thunar .path-bar button {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 7px 12px;
+    color: alpha(@foreground, 0.75);
+}
+
+.thunar .linked.path-bar button:hover,
+.thunar .path-bar button:hover {
+    background: alpha(@surface_variant, 0.5);
+    color: @foreground;
+}
+
+.thunar .linked.path-bar button:checked,
+.thunar .path-bar button:checked {
+    background: alpha(@primary, 0.22);
+    color: @primary;
+}
+
+.thunar treeview.view,
+.thunar iconview.view {
+    background-color: @background;
+    color: @foreground;
+    padding: 6px;
+}
+
+.thunar .sidebar,
+.thunar placessidebar {
+    background-color: @sidebar_bg_color;
+}
+
+.thunar .sidebar row,
+.thunar placessidebar row {
+    padding: 9px 12px;
+    margin: 1px 6px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+.thunar .sidebar row:hover,
+.thunar placessidebar row:hover {
+    background-color: alpha(@surface_variant, 0.35);
+}
+
+.thunar .sidebar row:selected,
+.thunar placessidebar row:selected {
+    background-color: alpha(@primary, 0.20);
+    border-color: alpha(@primary, 0.35);
+    color: @primary;
+}
+
+.thunar XfceHeading {
+    background-color: transparent;
+    border: none;
+    color: alpha(@foreground, 0.55);
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    padding: 10px 12px 4px;
+}
+
+.thunar treeview.view:selected,
+.thunar iconview.view:selected {
+    background-color: alpha(@primary, 0.28);
+    color: @primary;
+    border-radius: 8px;
+}
+
+.thunar treeview.view:hover,
+.thunar iconview.view:hover {
+    background-color: alpha(@surface_variant, 0.35);
+}
+
+.thunar scrolledwindow.frame {
+    border: none;
+}
+
+.thunar statusbar {
+    background-color: transparent;
+    border-top: 1px solid alpha(@outline, 0.12);
+    color: alpha(@foreground, 0.65);
+    padding: 5px 12px;
+}
+
+.thunar notebook tab:checked {
+    color: @primary;
+}
+
+.thunar spinner:checked {
+    color: @primary;
+}

@@ -1,0 +1,39 @@
+#!/bin/bash
+# walker-dmenu — rofi-based dmenu shim (drun grid + list picker).
+# Walker plugin modes (-m) are delegated to the real walker.
+
+GRID_RASI="$HOME/.config/rofi/walker.rasi"
+LIST_RASI="$HOME/.config/rofi/list.rasi"
+
+case " $* " in
+  *" -m "*|*" --mode "*) exec walker "$@" ;;
+esac
+
+if [[ $# -eq 0 ]]; then
+  exec rofi -show drun -theme "$GRID_RASI"
+fi
+
+args=(-dmenu -theme "$LIST_RASI")
+prompt=""
+width=""
+height=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dmenu) ;;
+    --inputonly) ;;
+    -p) [[ $# -ge 2 ]] && { prompt="$2"; shift; } ;;
+    --width) [[ $# -ge 2 && $2 =~ ^[0-9]+$ ]] && width="$2" ;;
+    --maxheight) [[ $# -ge 2 && $2 =~ ^[0-9]+$ && $2 -gt 0 ]] && height="$2" ;;
+    --height) [[ $# -ge 2 && $2 =~ ^[0-9]+$ && $2 -gt 0 ]] && [[ -z $height ]] && height="$2" ;;
+    --minheight) ;;
+    *) ;;
+  esac
+  shift
+done
+
+[[ -n $prompt ]] && args+=(-p "$prompt")
+[[ -n $width  ]] && args+=(-theme-str "window { width: ${width}px; }")
+[[ -n $height ]] && args+=(-theme-str "window { height: ${height}px; }")
+
+exec rofi "${args[@]}"

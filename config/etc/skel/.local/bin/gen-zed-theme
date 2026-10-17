@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""Generate the Zed "Matugen" theme from the matugen base palette.
+
+Keeps derived accent colors in sync with nvim (matugen/templates/neovim.lua)
+but fixes diagnostics to be semantic + eye-friendly:
+  red = error, yellow/amber = warning, green = success/created
+Colors stay wallpaper-driven (saturation/lightness from primary/error)
+but hues are locked so warnings are always yellow and success always green,
+with desaturation and slightly lower lightness to avoid eye strain on dark bg.
+"""
+
+import json
+import os
+import re
+import sys
+
+BASE_NEW = os.path.expanduser("~/.config/theme/current/matugen-base.json")
+BASE_OLD = os.path.expanduser("~/.config/omarchy/current/theme/matugen-base.json")
+BASE = BASE_NEW if os.path.exists(BASE_NEW) else BASE_OLD
+OUT = os.path.expanduser("~/.config/zed/themes/matugen.json")
+SETTINGS = os.path.expanduser("~/.config/zed/settings.json")
+
+
+def hex2rgb(hexv):
+    hexv = hexv.lstrip("#")
+    return tuple(int(hexv[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def rgb2hex(rgb):
+    return "#" + "".join("%02x" % max(0, min(255, round(v))) for v in rgb)
+
+
+def rgb2hsl(rgb):
+    r, g, b = (v / 255 for v in rgb)
+    mx, mn = max(r, g, b), min(r, g, b)
+    l = (mx + mn) / 2
+    if mx == mn:
+        return 0.0, 0.0, l
+    d = mx - mn
+    s = d / (2 - mx - mn) if l > 0.5 else d / (mx + mn)
+    if mx == r:
+        h = (g - b) / d + (6 if g < b else 0)
+    elif mx == g:
+        h = (b - r) / d + 2
+    else:
+        h = (r - g) / d + 4
+    return h / 6, s, l
+
+
+def hsl2rgb(h, s, l):
+    def hue(p, q, t):
+        t %= 1.0
+        if t < 1 / 6:
+            return p + (q - p) * 6 * t
+        if t < 1 / 2:
+            return q
+        if t < 2 / 3:
+            return p + (q - p) * (2 / 3 - t) * 6
+        return p
+
+    if s == 0:
+        return (l * 255,) * 3
+    q = l * (1 + s) if l < 0.5 else l + s - l * s
+    p = 2 * l - q
+    return tuple(hue(p, q, h + off) * 255 for off in (1 / 3, 0, -1 / 3))
+
+
+def tweak(hexv, dh, ds, dl):
+    h, s, l = rgb2hsl(hex2rgb(hexv))
+    h = (h + dh / 360) % 1.0
+    s = max(0.0, min(1.0, s + ds))
+    l = max(0.0, min(1.0, l + dl))
+    return rgb2hex(hsl2rgb(h, s, l))
+
+
+def hue_from(hexv, target_hue_deg, ds=-0.10, dl=-0.06):
+    """Keep wallpaper's saturation/lightness but lock hue for semantic colors.
+    Desaturate + slightly darken for dark-bg eye comfort (not neon)."""
+    h, s, l = rgb2hsl(hex2rgb(hexv))
+    s = max(0.0, min(1.0, s + ds))
+    l = max(0.0, min(1.0, l + dl))
+    return rgb2hex(hsl2rgb(target_hue_deg / 360, s, l))
+
+
+def c(color):
+    return {"color": color, "font_style": None, "font_weight": None}
+
+
+# ── Translucency ────────────────────────────────────────────────
+# Zed's window surface is transparent (background.appearance below), so these
+# alpha bytes let Hyprland's decoration.blur show through. Only backgrounds get
+# an alpha; text, borders, and terminal.ansi.* stay fully opaque or they render
+# as washed-out smears.
+BG_A = "b3"      # base surfaces — 70%, you see a bit of wallpaper
+LOW_A = "d9"     # overlays on the base — 85%, keeps them readable
+RAISED_A = "b3"  # raised surfaces — 70%, lighter so they still read as raised
+SELECT_A = "cc"  # search/read-highlight — 80%
+
+
+def a(hexv, alpha):
+    """Append an alpha byte to a wallpaper-derived color (Zed accepts #rrggbbaa)."""
+    return hexv + alpha
+
+
+def load_jsonc(path):
+    """Zed settings are JSONC (trailing commas). Strip those so stdlib parses."""
+    with open(path) as f:
+        text = f.read()
+    text = re.sub(r",(\s*[}\]])", r"\1", text)
+    return json.loads(text)
+
+
+def main():
+    if not os.path.exists(BASE):
+        sys.exit(f"{BASE} not found; run getTheme first")
+
+    with open(BASE) as f:
+        b = json.load(f)
+
+    bg = b["background"]
+    fg = b["on_background"]
+    dim = b["on_surface_variant"]
+    muted = b["outline"]
+    faint = b["outline_variant"]
+    border = b["surface_container_highest"]
+    raised = b["surface_container"]
+    low = b["surface_container_low"]
+    select = b["surface_container_high"]
+    primary = b["primary"]
+    primary_c = b["primary_container"]
+    tertiary = b["tertiary"]
+    secondary = b["secondary"]
+    error = b["error"]
+
+    # ── Semantic colors: wallpaper-aware, hue-locked, eye-friendly ──
+    # Error: matugen error is already red-family, just soften a bit (less pink-wash, less glare)
+    error_red = tweak(error, -2, -0.07, -0.05)
+    # Warning: fixed amber/yellow hue (44°) but saturation/lightness from wallpaper primary
+    warning_yellow = hue_from(primary, 44, ds=-0.09, dl=-0.07)
+    # Success/green: fixed green hue (142°) – same logic, stays green on any wallpaper
+    success_green = hue_from(primary, 142, ds=-0.10, dl=-0.07)
+    # Variants for terminal bright (slightly lighter) and muted hint
+    error_bright = tweak(error_red, 0, 0.04, 0.06)
+    warning_bright = tweak(warning_yellow, 0, 0.05, 0.06)
+    success_bright = tweak(success_green, 0, 0.04, 0.06)
+    # Hint: desaturated green/gray – noticeable but not demanding attention
+    hint_green = tweak(success_green, 0, -0.12, 0.02)
+    # Keep info as primary (blue/periwinkle), muted stays outline
+    info_blue = primary
+
+    # ── Syntax: same hue offsets as nvim so editors match, but slightly less lightness for comfort ──
+    keyword = tweak(primary, 30, 0.10, 0.02)
+    function = primary
+    typ = tweak(primary, -30, 0.10, 0.02)
+    constructor = tweak(primary, 15, 0.10, 0.03)
+    tag = tweak(primary, -10, 0.08, 0.03)
+    attribute = tweak(primary, 45, 0.08, 0.04)
+    label = tweak(primary, 40, 0.05, 0.06)
+    string = tweak(primary, -90, 0.14, -0.02)
+    string_escape = tweak(primary, -170, 0.10, 0.04)
+    number = tweak(primary, -200, 0.12, 0.02)
+    constant = tweak(primary, -50, 0.12, 0.03)
+
+    # Terminal palette – coherent with editor, not neon
+    terminal_black = bg
+    terminal_white = fg
+    terminal_red = error_red
+    terminal_green = success_green
+    terminal_yellow = warning_yellow
+    terminal_blue = primary
+    terminal_magenta = tertiary
+    terminal_cyan = tweak(primary, -30, 0.08, 0.02)  # = typ
+    # Bright = slightly lighter
+    bright_black = muted
+    bright_white = fg
+
+    style = {
+        # Non-opaque makes Zed's Wayland surface translucent (renderer alpha),
+        # so Hyprland's decoration.blur shows through. Zed's own "blurred"
+        # mode needs the KDE blur protocol and is a no-op here.
+        "background.appearance": "transparent",
+        "background": a(bg, BG_A),
+        "border": border,
+        "border.variant": select,
+        "elevated_surface.background": a(raised, RAISED_A),
+        "surface.background": a(raised, RAISED_A),
+        "element.background": a(raised, RAISED_A),
+        "element.hover": select,
+        "element.active": primary_c,
+        "element.selected": select,
+        "text": fg,
+        "text.muted": muted,
+        "text.placeholder": faint,
+        "text.accent": primary,
+        "status_bar.background": a(bg, BG_A),
+        "title_bar.background": a(bg, BG_A),
+        "title_bar.inactive_background": a(low, LOW_A),
+        "toolbar.background": a(bg, BG_A),
+        "tab_bar.background": a(bg, BG_A),
+        "tab.inactive_background": a(bg, BG_A),
+        "tab.active_background": a(raised, RAISED_A),
+        "panel.background": a(bg, BG_A),
+        "panel.focused_border": primary,
+        "pane.focused_border": primary,
+        "scrollbar.thumb.background": faint,
+        "scrollbar.thumb.hover_background": muted,
+        "scrollbar.thumb.border": border,
+        "scrollbar.track.background": a(bg, BG_A),
+        # ── Diagnostics & git – fixed semantics ──
+        "error": error_red,
+        "error.background": a(low, LOW_A),
+        "error.border": error_red,
+        "warning": warning_yellow,
+        "warning.background": a(low, LOW_A),
+        "warning.border": warning_yellow,
+        "hint": hint_green,
+        "hint.background": a(low, LOW_A),
+        "hint.border": hint_green,
+        "info": info_blue,
+        "info.background": a(low, LOW_A),
+        "info.border": info_blue,
+        "success": success_green,
+        "success.background": a(low, LOW_A),
+        "success.border": success_green,
+        "created": success_green,
+        "created.background": a(low, LOW_A),
+        "created.border": success_green,
+        "modified": warning_yellow,
+        "modified.background": a(low, LOW_A),
+        "modified.border": warning_yellow,
+        "deleted": error_red,
+        "deleted.background": a(low, LOW_A),
+        "deleted.border": error_red,
+        "renamed": info_blue,
+        "renamed.background": a(low, LOW_A),
+        "renamed.border": info_blue,
+        "conflict": warning_yellow,
+        "conflict.background": a(low, LOW_A),
+        "conflict.border": warning_yellow,
+        "ignored": muted,
+        "ignored.background": a(bg, BG_A),
+        "ignored.border": faint,
+        "hidden": muted,
+        "hidden.background": a(bg, BG_A),
+        "hidden.border": faint,
+        "unreachable": muted,
+        "unreachable.background": a(bg, BG_A),
+        "unreachable.border": faint,
+        "predictive": faint,
+        "predictive.background": a(low, LOW_A),
+        "predictive.border": faint,
+        # ── Editor ──
+        "editor.foreground": fg,
+        "editor.background": a(bg, BG_A),
+        "editor.gutter.background": a(bg, BG_A),
+        "editor.subheader.background": a(bg, BG_A),
+        "editor.active_line.background": a(low, LOW_A),
+        "editor.highlighted_line.background": a(raised, RAISED_A),
+        "editor.line_number": muted,
+        "editor.active_line_number": primary,
+        "editor.wrap_guide": faint,
+        "editor.active_wrap_guide": muted,
+        "editor.document_highlight.read_background": a(select, SELECT_A),
+        "editor.document_highlight.write_background": primary_c,
+        "link_text.hover": primary,
+        "search.match_background": a(select, SELECT_A),
+        # ── Terminal ──
+        "terminal.background": a(bg, BG_A),
+        "terminal.foreground": fg,
+        "terminal.bright_foreground": fg,
+        "terminal.dim_foreground": muted,
+        # ansi colors are text, never translucent
+        "terminal.ansi.black": terminal_black,
+        "terminal.ansi.bright_black": bright_black,
+        "terminal.ansi.red": terminal_red,
+        "terminal.ansi.bright_red": error_bright,
+        "terminal.ansi.green": terminal_green,
+        "terminal.ansi.bright_green": success_bright,
+        "terminal.ansi.yellow": terminal_yellow,
+        "terminal.ansi.bright_yellow": warning_bright,
+        "terminal.ansi.blue": terminal_blue,
+        "terminal.ansi.bright_blue": tweak(terminal_blue, 0, 0.04, 0.06),
+        "terminal.ansi.magenta": terminal_magenta,
+        "terminal.ansi.bright_magenta": tweak(terminal_magenta, 0, 0.04, 0.06),
+        "terminal.ansi.cyan": terminal_cyan,
+        "terminal.ansi.bright_cyan": tweak(terminal_cyan, 0, 0.04, 0.06),
+        "terminal.ansi.white": terminal_white,
+        "terminal.ansi.bright_white": bright_white,
+        "players": [
+            {"cursor": primary, "selection": primary_c, "background": None}
+        ],
+        "syntax": {
+            "attribute": c(attribute),
+            "boolean": c(number),
+            "comment": {"color": muted, "font_style": "italic", "font_weight": None},
+            "comment.doc": {"color": muted, "font_style": "italic", "font_weight": None},
+            "constant": c(constant),
+            "constructor": c(constructor),
+            "emphasis": {"color": fg, "font_style": "italic", "font_weight": None},
+            "emphasis.strong": {"color": fg, "font_style": None, "font_weight": 700},
+            "function": c(function),
+            "keyword": c(keyword),
+            "label": c(label),
+            "link_text": c(primary),
+            "link_uri": c(primary),
+            "number": c(number),
+            "property": c(dim),
+            "punctuation": c(dim),
+            "punctuation.bracket": c(dim),
+            "punctuation.delimiter": c(dim),
+            "punctuation.list_marker": c(dim),
+            "punctuation.special": c(dim),
+            "string": c(string),
+            "string.escape": c(string_escape),
+            "string.regex": c(string),
+            "string.special": c(string),
+            "string.special.symbol": c(string),
+            "tag": c(tag),
+            "text.literal": c(string),
+            "title": c(primary),
+            "type": c(typ),
+            "variable": c(fg),
+            "variable.special": {"color": fg, "font_style": "italic", "font_weight": None},
+        },
+    }
+
+    theme = {
+        "$schema": "https://zed.dev/schema/themes/v0.1.0.json",
+        "name": "matugen",
+        "author": "matugen",
+        "themes": [
+            {
+                "name": "Matugen",
+                "appearance": "dark",
+                "style": style,
+            }
+        ],
+    }
+
+    with open(OUT, "w") as f:
+        json.dump(theme, f, indent=2)
+    print(f"Wrote {OUT}")
+    print(f"  error={error_red} warning={warning_yellow} success={success_green}")
+
+    # Zed only reads theme files at startup, but it live-reloads
+    # settings.json — mirror the palette into theme_overrides so a
+    # running Zed re-skins on every wallpaper switch, no restart.
+    if os.path.exists(SETTINGS):
+        settings = load_jsonc(SETTINGS)
+        settings.setdefault("theme_overrides", {})["Matugen"] = style
+        with open(SETTINGS, "w") as f:
+            json.dump(settings, f, indent=2)
+            f.write("\n")
+        print(f"Mirrored palette into {SETTINGS} (theme_overrides.Matugen)")
+
+
+if __name__ == "__main__":
+    main()

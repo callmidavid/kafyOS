@@ -1,0 +1,168 @@
+[config]
+contrast = 0.2
+variation = "standard"
+
+[config.reload_apps]
+waybar = true
+
+[templates.waybar]
+input_path = "~/.config/matugen/templates/waybar-colors.css"
+output_path = "~/.config/quickshell/colors.css"
+
+[templates.hyprland-theme]
+input_path = "~/.config/matugen/templates/hyprland-colors.conf"
+output_path = "~/.config/theme/themes/snow_black/colors.conf"
+
+[templates.hyprland-current]
+input_path = "~/.config/matugen/templates/hyprland-colors.conf"
+output_path = "~/.config/omarchy/current/theme/colors.conf"
+
+[templates.hyprland-standalone]
+input_path = "~/.config/matugen/templates/hyprland-colors.conf"
+output_path = "~/.config/theme/current/colors.conf"
+
+[templates.hyprlock-current]
+input_path = "~/.config/matugen/templates/hyprlock-colors.conf"
+output_path = "~/.config/omarchy/current/theme/hyprlock.conf"
+
+[templates.hyprlock-standalone]
+input_path = "~/.config/matugen/templates/hyprlock-colors.conf"
+output_path = "~/.config/theme/current/hyprlock.conf"
+
+[templates.kitty-theme]
+input_path = "~/.config/matugen/templates/kitty-theme.conf"
+output_path = "~/.config/theme/themes/snow_black/kitty.conf"
+
+[templates.kitty-current]
+input_path = "~/.config/matugen/templates/kitty-theme.conf"
+output_path = "~/.config/omarchy/current/theme/kitty.conf"
+
+[templates.kitty-standalone]
+input_path = "~/.config/matugen/templates/kitty-theme.conf"
+output_path = "~/.config/theme/current/kitty.conf"
+
+
+[templates.pear-desktop-theme]
+input_path = "~/.config/matugen/templates/pear-desktop.css"
+output_path = "~/.config/theme/themes/snow_black/pear-desktop.css"
+
+[templates.pear-desktop-current]
+input_path = "~/.config/matugen/templates/pear-desktop.css"
+output_path = "~/.config/theme/current/pear-desktop.css"
+
+[templates.cavasik-theme]
+input_path = "~/.config/matugen/templates/cavasik-colors.rgb"
+output_path = "~/.config/theme/themes/snow_black/cavasik-colors.rgb"
+
+[templates.cavasik-current]
+input_path = "~/.config/matugen/templates/cavasik-colors.rgb"
+output_path = "~/.config/cavasik/colors.rgb"
+
+[templates.gtk-theme]
+input_path = "~/.config/matugen/templates/gtk.css"
+output_path = "~/.config/theme/themes/snow_black/gtk.css"
+
+[templates.gtk-current]
+input_path = "~/.config/matugen/templates/gtk.css"
+output_path = "~/.config/omarchy/current/theme/gtk.css"
+
+[templates.gtk-standalone]
+input_path = "~/.config/matugen/templates/gtk.css"
+output_path = "~/.config/theme/current/gtk.css"
+
+[templates.chromium-theme]
+input_path = "~/.config/matugen/templates/chromium.theme"
+output_path = "~/.config/theme/themes/snow_black/chromium.theme"
+
+[templates.chromium-current]
+input_path = "~/.config/matugen/templates/chromium.theme"
+output_path = "~/.config/theme/current/chromium.theme"
+
+[templates.chromium-omarchy-current]
+input_path = "~/.config/matugen/templates/chromium.theme"
+output_path = "~/.config/omarchy/current/theme/chromium.theme"
+
+[templates.btop-theme]
+input_path = "~/.config/matugen/templates/btop.theme"
+output_path = "~/.config/theme/themes/snow_black/btop.theme"
+
+[templates.btop-current]
+input_path = "~/.config/matugen/templates/btop.theme"
+output_path = "~/.config/theme/current/btop.theme"
+
+[templates.cava-theme]
+input_path = "~/.config/matugen/templates/cava_theme"
+output_path = "~/.config/theme/themes/snow_black/cava_theme"
+
+[templates.cava-current]
+input_path = "~/.config/matugen/templates/cava_theme"
+output_path = "~/.config/cava/config"
+
+[templates.firefox-theme]
+input_path = "~/.config/matugen/templates/firefox.css"
+output_path = "~/.config/theme/themes/snow_black/firefox.css"
+
+[templates.firefox-current]
+input_path = "~/.config/matugen/templates/firefox.css"
+output_path = "~/.config/theme/current/firefox.css"
+
+[templates.rofi]
+input_path = "~/.config/matugen/templates/rofi-colors.rasi"
+output_path = "~/.config/rofi/colors.rasi"
+
+[templates.neovim]
+input_path = "~/.config/matugen/templates/neovim.lua"
+output_path = "~/.config/omarchy/current/theme/neovim.lua"
+
+[templates.neovim-standalone]
+input_path = "~/.config/matugen/templates/neovim.lua"
+output_path = "~/.config/theme/current/neovim.lua"
+
+[templates.swayosd-current]
+input_path = "~/.config/matugen/templates/swayosd.css"
+output_path = "~/.config/omarchy/current/theme/swayosd.css"
+
+[templates.swayosd-standalone]
+input_path = "~/.config/matugen/templates/swayosd.css"
+output_path = "~/.config/theme/current/swayosd.css"
+
+[templates.zed-palette]
+input_path = "~/.config/matugen/templates/zed-palette.json"
+output_path = "~/.config/omarchy/current/theme/matugen-base.json"
+
+[templates.zed-standalone]
+input_path = "~/.config/matugen/templates/zed-palette.json"
+output_path = "~/.config/theme/current/matugen-base.json"
+
+[templates.firefox-content-theme]
+input_path = "~/.config/matugen/templates/firefox-content.css"
+output_path = "~/.config/theme/themes/snow_black/firefox-usercontent.css"
+
+[templates.firefox-content-current]
+input_path = "~/.config/matugen/templates/firefox-content.css"
+output_path = "~/.config/theme/current/firefox-usercontent.css"
+
+[templates.zen-theme]
+input_path = "~/.config/matugen/templates/zen.css"
+output_path = "~/.config/theme/themes/snow_black/zen.css"
+
+[templates.zen-current]
+input_path = "~/.config/matugen/templates/zen.css"
+output_path = "~/.config/theme/current/zen.css"
+
+[templates.zen-content-theme]
+input_path = "~/.config/matugen/templates/zen-content.css"
+output_path = "~/.config/theme/themes/snow_black/zen-usercontent.css"
+
+[templates.zen-content-current]
+input_path = "~/.config/matugen/templates/zen-content.css"
+output_path = "~/.config/theme/current/zen-usercontent.css"
+
+[templates.zathura]
+input_path = "~/.config/matugen/templates/zathurarc"
+output_path = "~/.config/zathura/zathurarc"
+
+[templates.sddm]
+input_path = "~/.config/matugen/templates/sddm-palette.qml"
+output_path = "/usr/share/sddm/themes/elarun-custom/Palette.qml"
+
