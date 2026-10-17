@@ -37,7 +37,6 @@ uid_gid=$(awk -F: -v user="$user" '$1 == user { print $3 ":" $4; exit }' "$targe
 log 'copying Kafy system assets and commands'
 install -Dm755 /usr/local/bin/kafy-doctor "$target/usr/local/bin/kafy-doctor"
 install -Dm755 /usr/local/bin/kafy-theme "$target/usr/local/bin/kafy-theme"
-install -Dm755 /usr/local/bin/kafy-shell "$target/usr/local/bin/kafy-shell"
 install -Dm755 "$payload_root/usr/local/bin/kafy-first-boot" "$target/usr/local/bin/kafy-first-boot"
 install -Dm644 "$payload_root/etc/systemd/user/kafy-first-boot.service" "$target/etc/systemd/user/kafy-first-boot.service"
 
@@ -47,8 +46,6 @@ install -d -m 0755 "$target/usr/share"
 cp -a /usr/share/kafy "$target/usr/share/"
 install -d -m 0755 "$target/usr/share/wallpapers"
 cp -a /usr/share/wallpapers/kafy "$target/usr/share/wallpapers/"
-install -d -m 0755 "$target/etc/xdg"
-cp -a /etc/xdg/quickshell "$target/etc/xdg/"
 
 log 'copying Kafy login theme, fonts, and cursor base'
 install -d -m 0755 "$target/usr/share/sddm/themes"
@@ -59,6 +56,15 @@ install -d -m 0755 "$target/usr/share/icons"
 cp -a /usr/share/icons/Bibata-Modern-Ice "$target/usr/share/icons/"
 install -d -m 0755 "$target/etc/sddm.conf.d"
 printf '[Theme]\nCurrent=elarun-custom\n' > "$target/etc/sddm.conf.d/10-theme.conf"
+
+# Matugen rewrites the login palette in place (new inode), so the theme directory
+# must be owned by the desktop user; otherwise every theme change fails on the
+# root-owned /usr/share path.
+chown -R "$uid_gid" "$target/usr/share/sddm/themes/elarun-custom"
+
+log 'installing the WatchCat scoped sudoers rule'
+install -d -m 0755 "$target/etc/sudoers.d"
+install -Dm440 "$payload_root/etc/sudoers.d/kafy-watchcat" "$target/etc/sudoers.d/kafy-watchcat"
 
 log "seeding defaults for $user without overwriting existing files"
 cp -an "$target/etc/skel/." "$target$home/"

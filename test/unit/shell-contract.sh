@@ -2,25 +2,32 @@
 set -euo pipefail
 
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-shell_dir="$project_dir/shell/kafy"
+shell_dir="$project_dir/config/etc/skel/.config/quickshell"
+autostart="$project_dir/config/etc/skel/.config/hypr/autostart.conf"
 
-for file in shell.qml KafyBar.qml KafyLauncher.qml KafyControlCenter.qml KafyNotificationCenter.qml KafyDock.qml; do
+# The adopted (Uthman-derived) Quickshell is Kafy's only shell.
+for file in shell.qml components/Bar.qml components/Colors.qml; do
   [[ -s "$shell_dir/$file" ]] || {
-    printf 'Missing Kafy Shell file: %s\n' "$file" >&2
+    printf 'Missing Kafy shell file: %s\n' "$file" >&2
     exit 1
   }
 done
 
 rg -Fqx 'import Quickshell' "$shell_dir/shell.qml"
-rg -Fqx 'import Quickshell.Hyprland' "$shell_dir/KafyBar.qml"
-rg -Fq 'model: Hyprland.workspaces' "$shell_dir/KafyBar.qml"
-rg -Fq 'onClicked: modelData.activate()' "$shell_dir/KafyBar.qml"
-rg -Fq 'NotificationServer {' "$shell_dir/shell.qml"
-rg -Fq 'DesktopEntries.applications.values' "$shell_dir/KafyLauncher.qml"
-rg -Fq 'trackedNotifications' "$shell_dir/KafyNotificationCenter.qml"
-rg -Fq 'nm-connection-editor' "$shell_dir/KafyControlCenter.qml"
-rg -Fq 'wpctl' "$shell_dir/KafyControlCenter.qml"
-rg -Fq 'Firefox' "$shell_dir/KafyDock.qml"
-bash -n "$project_dir/bin/kafy-shell"
+rg -Fq 'ShellRoot {' "$shell_dir/shell.qml"
+rg -Fq 'FileView' "$shell_dir/components/Colors.qml"
+
+# Hyprland must launch the shell with the canonical config path.
+rg -Fqx 'exec-once = quickshell -p ~/.config/quickshell' "$autostart"
+
+# The previous Kafy-owned shell must be gone.
+[[ ! -e "$project_dir/bin/kafy-shell" ]] || {
+  printf 'Duplicate kafy-shell command is still present.\n' >&2
+  exit 1
+}
+[[ ! -e "$project_dir/shell/kafy" ]] || {
+  printf 'Duplicate Kafy shell source is still present.\n' >&2
+  exit 1
+}
 
 printf 'Kafy Shell contract test passed.\n'

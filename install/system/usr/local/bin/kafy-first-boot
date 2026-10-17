@@ -8,9 +8,27 @@ log_file="$state_dir/first-boot.log"
 [[ -e $state_file ]] && exit 0
 mkdir -p "$state_dir"
 
+# Wire Firefox's chrome theming into any profile that already exists. Firefox
+# skips a symlinked userChrome.css, so CSS is copied; user.js may stay a symlink.
+# New profiles created after first boot are handled by getTheme on wallpaper change.
+wire_firefox() {
+  local base profdir
+  for base in "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox"; do
+    [[ -f "$base/profiles.ini" ]] || continue
+    profdir=$(ls -d "$base"/*.default-release 2>/dev/null | head -1)
+    [[ -z $profdir ]] && profdir=$(ls -d "$base"/*.default* 2>/dev/null | head -1)
+    [[ -n $profdir ]] || continue
+    mkdir -p "$profdir/chrome"
+    [[ -f /usr/share/kafy/firefox/user.js ]] && ln -sf /usr/share/kafy/firefox/user.js "$profdir/user.js"
+    [[ -f "$HOME/.config/theme/current/firefox.css" ]] && cp -f "$HOME/.config/theme/current/firefox.css" "$profdir/chrome/userChrome.css"
+    [[ -f "$HOME/.config/theme/current/firefox-usercontent.css" ]] && cp -f "$HOME/.config/theme/current/firefox-usercontent.css" "$profdir/chrome/userContent.css"
+  done
+}
+
 {
   printf 'Kafy first boot: %s\n' "$(date --iso-8601=seconds)"
   /usr/local/bin/kafy-doctor
+  wire_firefox
 } >"$log_file" 2>&1 || true
 
 touch "$state_file"

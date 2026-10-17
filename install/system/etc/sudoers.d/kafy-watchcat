@@ -1,0 +1,3 @@
+# Kafy WatchCat: let the desktop user sample per-process traffic without a password.
+# Scoped to exactly one command; this grants no general privilege escalation.
+%wheel ALL=(root) NOPASSWD: /usr/bin/nethogs

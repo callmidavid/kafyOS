@@ -97,6 +97,7 @@ for _ffbase in "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox"; do
     [[ -z "$_profdir" ]] && _profdir=$(ls -d "$_ffbase"/*.default* 2>/dev/null | head -1)
     [[ -n "$_profdir" ]] && {
         mkdir -p "$_profdir/chrome"
+        [[ -f /usr/share/kafy/firefox/user.js ]] && ln -sf /usr/share/kafy/firefox/user.js "$_profdir/user.js"
         cp -f "$HOME/.config/theme/current/firefox.css" "$_profdir/chrome/userChrome.css"
         cp -f "$HOME/.config/theme/current/firefox-usercontent.css" "$_profdir/chrome/userContent.css"
     }

@@ -1,0 +1,13 @@
+[Unit]
+Description=WatchCat hotspot data watchdog (per-process traffic sampling)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.config/quickshell/scripts/watchcat-daemon.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=graphical-session.target

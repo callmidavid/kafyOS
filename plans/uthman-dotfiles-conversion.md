@@ -16,7 +16,7 @@ Kafy adopts the desktop from `https://github.com/codetesla51/uthman_dotfiles` as
 | `assets/fonts/Iceland-Regular.ttf` | `default/usr/share/fonts/TTF/` | Needed by SDDM, which cannot read `$HOME` fonts. |
 | `cursor-theme/.local/share/icons/Bibata-Modern-Ice/` | `default/usr/share/icons/Bibata-Modern-Ice/` | Base the cursor generator recolors. |
 | `firefox/user.js` | `default/usr/share/kafy/firefox/user.js` | Firefox chrome theming source. |
-| `.config/systemd/user/` | `config/etc/skel/.config/systemd/user/` (failwatch, phone-reconnect) | Repointed from `%h/dotfiles` to `%h`. |
+| `.config/systemd/user/` | `config/etc/skel/.config/systemd/user/` (failwatch, phone-reconnect, watchcat) | Repointed from `%h/dotfiles` to `%h`; `watchcat` is enabled via `graphical-session.target.wants`. |
 
 ## Wiring changes
 
@@ -36,10 +36,16 @@ Kafy adopts the desktop from `https://github.com/codetesla51/uthman_dotfiles` as
 - The personal Obsidian vault output in `matugen/config.toml`.
 - Personal wallpapers and the Wallhaven API key (never tracked upstream).
 
-## Known open items
+## Fixes applied after the initial import
 
-- Matugen's `[templates.sddm]` writes to `/usr/share/sddm/themes/elarun-custom/Palette.qml`, a root path. A normal user cannot overwrite it, so that template errors unless the theme is made user-writable or the output is redirected to user state.
-- Firefox `user.js` and per-profile CSS wiring from `install.sh` is not reproduced; matugen's `getTheme` handles the CSS copies, but the initial `user.js` symlink is not created.
-- The `watchcat` passwordless `nethogs` sudoers drop-in referenced by the shell is not part of the upstream repo and is not yet shipped.
-- `shell/kafy` and `bin/kafy-shell` remain Kafy's own shell; the adopted session runs the Uthman Quickshell instead. Reconcile or retire one of them.
-- Unverified in a VM. The next acceptance step is a disposable-VM boot to confirm the adopted session, SDDM theme, and installer window.
+- **SDDM palette.** Matugen's `[templates.sddm]` rewrites `Palette.qml` in place (new inode), so the theme directory must be writable by the desktop account. `provision-target` now `chown`s `/usr/share/sddm/themes/elarun-custom` to the user, and `customize_airootfs.sh` does the same for `liveuser` on the live ISO.
+- **Firefox.** `getTheme` symlinks `/usr/share/kafy/firefox/user.js` into each detected profile and refreshes the chrome CSS; `kafy-first-boot` repeats the wiring for profiles that already exist at first login.
+- **WatchCat.** Added the `nethogs` package, a `watchcat.service` user unit enabled through `graphical-session.target.wants`, and a scoped `/etc/sudoers.d/kafy-watchcat` rule (`%wheel … NOPASSWD: /usr/bin/nethogs`). Opt out with `systemctl --user disable --now watchcat.service`.
+- **Duplicate shell retired.** `shell/kafy`, `bin/kafy-shell`, and the `/etc/xdg/quickshell/kafy` composition are gone. The Uthman-derived Quickshell in `/etc/skel/.config/quickshell` is Kafy's only shell; `test/unit/shell-contract.sh` asserts that and fails if the old shell returns.
+- **Matugen output dirs.** Seeded `~/.config/zathura/` and `~/.config/cavasik/` so every configured template has a writable destination.
+
+## Remaining open items
+
+- `themes/kafy` and `bin/kafy-theme` are now vestigial: nothing in the adopted session reads the static theme. Decide whether to retire them too.
+- Matugen's `reload_apps.waybar` targets Waybar, which is not installed; harmless but unused.
+- Unverified in a VM. The next acceptance step is a disposable-VM boot to confirm the session, SDDM theme, cursor, wallpaper, and installer window, then an install/reboot cycle and a wallpaper change to confirm Matugen recolors the desktop and the login screen.
