@@ -11,4 +11,4 @@ Run `./test/unit/install-contract.sh` to check the source-side installation boun
 
 Run `./test/unit/theme-contract.sh` to ensure the Kafy theme remains the canonical source for Hyprland and Waybar visual values.
 
-Run `./test/unit/shell-contract.sh` to verify the Kafy Shell source and its Hyprland workspace integration contract.
+Run `./test/unit/shell-contract.sh` to verify the Kafy Shell source: bar, launcher, notification server, control center, dock, and Hyprland workspace integration.

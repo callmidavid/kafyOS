@@ -6,4 +6,10 @@ command -v qs >/dev/null 2>&1 || {
   exit 1
 }
 
-exec qs -c kafy
+case ${1:-start} in
+  start) exec qs -c kafy ;;
+  launcher) exec qs ipc call kafy toggleLauncher ;;
+  control-center) exec qs ipc call kafy toggleControlCenter ;;
+  notifications) exec qs ipc call kafy toggleNotifications ;;
+  *) printf 'Usage: kafy-shell {start|launcher|control-center|notifications}\n' >&2; exit 2 ;;
+esac
