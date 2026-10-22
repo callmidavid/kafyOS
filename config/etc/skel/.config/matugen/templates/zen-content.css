@@ -1,6 +1,5 @@
 /* ── matugen Zen content — new-tab/home pages + global niceties (ZEN ONLY) ──
- * Small centered logo, NOT a wallpaper. Search capped so it stops
- * stretching wall-to-wall. */
+ * Search is capped so it stops stretching wall-to-wall. */
 
 /* Everything (all sites): themed selection + thin scrollbars */
 ::selection {
@@ -16,11 +15,6 @@ html {
 @-moz-document url("about:newtab"), url("about:home"), url("about:blank") {
   body {
     background-color: {{ colors.background.default.hex }} !important;
-    background-image: url("file:///usr/share/kafy/zen/newtab-logo.png") !important;
-    background-position: center 32% !important;
-    background-size: 300px !important;
-    background-repeat: no-repeat !important;
-    background-attachment: fixed !important;
     color: {{ colors.on_background.default.hex }} !important;
     color-scheme: dark;
   }

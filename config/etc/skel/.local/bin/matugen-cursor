@@ -20,11 +20,7 @@ from pathlib import Path
 THEME_NAME = "Matugen-Cursor"
 SIZE = 20
 HOME = Path.home()
-BASE_CANDIDATES = [
-    HOME / ".local/share/icons/Bibata-Modern-Ice",
-    Path("/usr/share/icons/Bibata-Modern-Ice"),
-]
-BASE = next((p for p in BASE_CANDIDATES if p.is_dir()), BASE_CANDIDATES[0])
+BASE = HOME / ".local/share/icons/Bibata-Modern-Ice"
 OUTPUT = HOME / ".local/share/icons" / THEME_NAME
 COLORS = HOME / ".config/theme/current/colors.conf"
 LOCK = HOME / ".cache/matugen-cursor.lock"

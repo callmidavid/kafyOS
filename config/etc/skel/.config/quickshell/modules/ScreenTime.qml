@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 
-// kafyHabit — graph + 7-day list, Hyprland FloatingWindow, no hover clutter
+// uthmanHabit — graph + 7-day list, Hyprland FloatingWindow, no hover clutter
 FloatingWindow {
     id: root
     property var colors
@@ -12,7 +12,7 @@ FloatingWindow {
     // system sans (fontconfig default) — FiraCode everywhere read like a
     // terminal, and the mock this ports was set in a grotesk
     property string fontUi: "JetBrainsMono Nerd Font Mono"
-    title: "kafyHabit"
+    title: "uthmanHabit"
     implicitWidth: 700
     implicitHeight: 660
     // pinned like Monitors: a min/max range lets the window land off-spec

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prefer standalone wallpapers, fallback to omarchy path for legacy installs
 WALL_DIR="$HOME/Pictures/Wallpapers"
-[[ -d "$WALL_DIR" ]] || WALL_DIR="$HOME/.config/omarchy/themes/snow_black/backgrounds"
+[[ -d "$WALL_DIR" ]] || WALL_DIR="/usr/share/wallpapers/kafy/contents/images"
 [[ -d "$WALL_DIR" ]] || WALL_DIR="$HOME/.config/theme/current"
 THUMB_DIR="/tmp/wall_thumbs"
 LOOKUP_FILE="/tmp/wall_lookup.json"
@@ -18,7 +18,6 @@ if [[ -n "$selected" ]]; then
     fi
     full_path="${WALL_DIR}/${cleaned}"
     nohup "$HOME/.local/bin/set-wallpaper" "$full_path" >/dev/null 2>&1 &
-    gsettings set org.gnome.desktop.interface icon-theme 'Papirus'
 else
     pairs=()
     for f in "$WALL_DIR"/*.jpg "$WALL_DIR"/*.png "$WALL_DIR"/*.jpeg; do
@@ -30,10 +29,14 @@ else
 
         thumb="${THUMB_DIR}/${base}.png"
         if [[ ! -e "$thumb" || "$f" -nt "$thumb" ]]; then
-            magick "$f" -resize 300x300^ -gravity center -extent 300x300 \
-                \( -size 300x300 xc:none -draw 'roundrectangle 0,0,299,299,30,30' \) \
-                -alpha off -compose CopyOpacity -composite \
-                -strip "$thumb" 2>/dev/null
+            if command -v magick >/dev/null 2>&1; then
+                magick "$f" -resize 300x300^ -gravity center -extent 300x300 \
+                    \( -size 300x300 xc:none -draw 'roundrectangle 0,0,299,299,30,30' \) \
+                    -alpha off -compose CopyOpacity -composite \
+                    -strip "$thumb" 2>/dev/null
+            else
+                vipsthumbnail "$f" --size 300 -o "$thumb[Q=85]" >/dev/null 2>&1
+            fi
         fi
 
         icon_path="$thumb"

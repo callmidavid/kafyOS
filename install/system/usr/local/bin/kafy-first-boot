@@ -28,6 +28,14 @@ wire_firefox() {
 {
   printf 'Kafy first boot: %s\n' "$(date --iso-8601=seconds)"
   /usr/local/bin/kafy-doctor
+  # Materialize the palette once. The target ships a fallback theme and the
+  # wallpaper; matugen turns that wallpaper into the shell/GTK/login colors.
+  if [[ ! -f "$HOME/.config/quickshell/colors.css" ]]; then
+    bg=$(readlink -f "$HOME/.config/theme/current/background" 2>/dev/null || true)
+    if [[ -n $bg && -f $bg ]]; then
+      "$HOME/.local/bin/getTheme" "$bg" || true
+    fi
+  fi
   wire_firefox
 } >"$log_file" 2>&1 || true
 

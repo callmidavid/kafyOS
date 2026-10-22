@@ -1,0 +1,470 @@
+#!/usr/bin/env python3
+"""Kafy OS install backend.
+
+Runs as root from the live ISO. Reads a JSON job from stdin, partitions the
+selected disk, installs the Kafy package set, configures the target, applies the
+Kafy defaults, and installs the bootloader. Progress is emitted as JSON lines on
+stdout so the GTK front-end can render it without parsing human text.
+
+This is deliberately a whole-disk installer: the disk is erased, one EFI (or
+BIOS boot) partition and one ext4 root are created, and nothing else is touched.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+MOUNT = "/mnt"
+PAYLOAD = "/usr/local/share/kafy-installer"
+PROVISION = "/usr/local/share/kafy-installer/system/usr/local/lib/kafy/install/provision-target"
+
+
+class InstallError(RuntimeError):
+    pass
+
+
+def emit(message: dict) -> None:
+    print(json.dumps(message, ensure_ascii=False), flush=True)
+
+
+def log(line: str) -> None:
+    emit({"type": "log", "line": str(line)})
+
+
+def progress(percent: int, message: str) -> None:
+    emit({"type": "progress", "percent": int(percent), "message": message})
+
+
+def run(cmd: list[str], check: bool = True) -> int:
+    log("$ " + shlex.join(cmd))
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except FileNotFoundError as exc:
+        raise InstallError(f"Missing command: {cmd[0]}") from exc
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        log(line.rstrip())
+    code = proc.wait()
+    if check and code != 0:
+        raise InstallError(f"Command failed with exit code {code}: {shlex.join(cmd)}")
+    return code
+
+
+def run_input(cmd: list[str], data: str, check: bool = True) -> int:
+    """Run a command with stdin, never logging the input (it may be a password)."""
+    log("$ " + shlex.join(cmd))
+    proc = subprocess.run(cmd, input=data, text=True, capture_output=True)
+    if proc.stdout:
+        for line in proc.stdout.splitlines():
+            log(line)
+    if proc.stderr:
+        for line in proc.stderr.splitlines():
+            log(line)
+    if check and proc.returncode != 0:
+        raise InstallError(f"Command failed with exit code {proc.returncode}: {shlex.join(cmd)}")
+    return proc.returncode
+
+
+def write_file(path: str, text: str, mode: int = 0o644) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    os.chmod(target, mode)
+
+
+def read_file(path: str) -> str:
+    return Path(path).read_text()
+
+
+def partition_path(disk: str, number: int) -> str:
+    return f"{disk}p{number}" if disk[-1].isdigit() else f"{disk}{number}"
+
+
+def read_packages() -> list[str]:
+    packages: list[str] = []
+    for raw in read_file(f"{PAYLOAD}/packages").splitlines():
+        line = raw.strip()
+        if line and not line.startswith("#"):
+            packages.append(line)
+    return packages
+
+
+def read_optional() -> list[dict]:
+    return json.loads(read_file(f"{PAYLOAD}/optional-packages.json"))
+
+
+def live_disk() -> str | None:
+    """Return the disk that holds the live ISO, so it can never be the target."""
+    try:
+        source = subprocess.check_output(
+            ["findmnt", "-no", "SOURCE", "/run/archiso/bootmnt"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    if not source:
+        return None
+    try:
+        parent = subprocess.check_output(
+            ["lsblk", "-no", "PKNAME", source],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    return f"/dev/{parent}" if parent else None
+
+
+def unmount_disk(disk: str) -> None:
+    run(["umount", "-R", MOUNT], check=False)
+    try:
+        out = subprocess.check_output(
+            ["lsblk", "-lnpo", "NAME,MOUNTPOINT", disk],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return
+    mountpoints = []
+    for line in out.splitlines():
+        fields = line.split(None, 1)
+        if len(fields) == 2 and fields[1].strip():
+            mountpoints.append(fields[1].strip())
+    for mountpoint in sorted(set(mountpoints), reverse=True):
+        run(["umount", "-R", mountpoint], check=False)
+    run(["swapoff", "-a"], check=False)
+
+
+def partition(disk: str, uefi: bool) -> tuple[str, str | None]:
+    if not disk.startswith("/dev/"):
+        raise InstallError(f"Refusing to touch a non-device path: {disk}")
+    if not os.path.exists(disk):
+        raise InstallError(f"Disk does not exist: {disk}")
+    if disk == live_disk():
+        raise InstallError("The live installation media cannot be the target disk")
+
+    unmount_disk(disk)
+    progress(5, f"Partitioning {disk}")
+    run(["wipefs", "-a", disk], check=False)
+    run(["sgdisk", "--zap-all", disk])
+
+    if uefi:
+        run(
+            [
+                "sgdisk",
+                "--new=1:0:+512M",
+                "--typecode=1:ef00",
+                "--new=2:0:0",
+                "--typecode=2:8300",
+                "--change-name=1:KAFY_ESP",
+                "--change-name=2:KAFY_ROOT",
+                disk,
+            ]
+        )
+    else:
+        run(
+            [
+                "sgdisk",
+                "--new=1:0:+1M",
+                "--typecode=1:ef02",
+                "--new=2:0:0",
+                "--typecode=2:8300",
+                "--change-name=1:KAFY_BIOS",
+                "--change-name=2:KAFY_ROOT",
+                disk,
+            ]
+        )
+
+    run(["partprobe", disk], check=False)
+    run(["udevadm", "settle"], check=False)
+
+    progress(9, "Formatting the new filesystems")
+    root_part = partition_path(disk, 2)
+    efi_part = partition_path(disk, 1) if uefi else None
+    if uefi:
+        run(["mkfs.fat", "-F32", "-n", "KAFY_ESP", efi_part])
+    run(["mkfs.ext4", "-F", "-L", "KAFY_ROOT", root_part])
+
+    progress(13, "Mounting the target")
+    run(["mount", root_part, MOUNT])
+    if uefi:
+        run(["mkdir", "-p", f"{MOUNT}/boot"])
+        run(["mount", efi_part, f"{MOUNT}/boot"])
+    return root_part, efi_part
+
+
+def install_base() -> None:
+    packages = read_packages()
+    progress(17, "Installing the base system (this takes the longest)")
+    run(["pacstrap", "-K", MOUNT, *packages])
+
+
+def configure_target(cfg: dict, root_part: str) -> None:
+    progress(64, "Configuring the installed system")
+    run(["sh", "-c", f"genfstab -U {shlex.quote(MOUNT)} >> {shlex.quote(MOUNT)}/etc/fstab"])
+
+    locale = cfg["locale"]
+    locale_gen = read_file(f"{MOUNT}/etc/locale.gen")
+    for wanted in {locale, "en_US.UTF-8"}:
+        locale_gen = locale_gen.replace(f"#{wanted} UTF-8", f"{wanted} UTF-8")
+    write_file(f"{MOUNT}/etc/locale.gen", locale_gen)
+
+    write_file(f"{MOUNT}/etc/locale.conf", f"LANG={locale}\n")
+    write_file(f"{MOUNT}/etc/vconsole.conf", f"KEYMAP={cfg['vconsole_keymap']}\n")
+    write_file(f"{MOUNT}/etc/hostname", cfg["hostname"] + "\n")
+    write_file(
+        f"{MOUNT}/etc/hosts",
+        "127.0.0.1 localhost\n"
+        "::1 localhost\n"
+        f"127.0.1.1 {cfg['hostname']}.localdomain {cfg['hostname']}\n",
+    )
+
+    user = cfg["user"]
+    fullname = user.get("fullname") or user["username"]
+
+    setup = f"""#!/bin/bash
+set -euo pipefail
+ln -sf {shlex.quote('/usr/share/zoneinfo/' + cfg['timezone'])} /etc/localtime
+hwclock --systohc || true
+locale-gen
+passwd -l root
+for group in wheel video audio input storage optical network; do
+  getent group "$group" >/dev/null || groupadd "$group"
+done
+useradd -m -c {shlex.quote(fullname)} -G wheel,video,audio,input,storage,optical,network -s /bin/zsh {shlex.quote(user['username'])}
+cat >/etc/sudoers.d/10-wheel <<'KAFY_EOF'
+%wheel ALL=(ALL:ALL) ALL
+KAFY_EOF
+chmod 440 /etc/sudoers.d/10-wheel
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable sddm
+systemctl enable fstrim.timer
+systemctl enable systemd-timesyncd
+systemctl enable power-profiles-daemon
+systemctl enable cups.socket
+systemctl enable avahi-daemon.service || true
+systemctl enable reflector.timer || true
+mkinitcpio -P
+"""
+    write_file(f"{MOUNT}/root/.kafy-setup.sh", setup, 0o700)
+    run(["arch-chroot", MOUNT, "/bin/bash", "/root/.kafy-setup.sh"])
+    os.unlink(f"{MOUNT}/root/.kafy-setup.sh")
+
+    # Set the password without ever putting it in a shell command or log line.
+    run_input(
+        ["arch-chroot", MOUNT, "chpasswd"],
+        f"{user['username']}:{user['password']}\n",
+    )
+
+    progress(73, "Installing optional software")
+    install_optional(cfg.get("optional", []))
+    post_optional(cfg.get("optional", []), user["username"])
+
+    progress(84, "Applying Kafy defaults")
+    run([PROVISION, "--target", MOUNT, "--user", user["username"]])
+
+    # Point SDDM at the account created here, even before its first login.
+    sddm_conf = f"{MOUNT}/etc/sddm.conf.d/10-theme.conf"
+    if os.path.exists(sddm_conf):
+        text = read_file(sddm_conf)
+        if "DefaultUser" not in text:
+            write_file(
+                sddm_conf,
+                text.rstrip() + f"\n\n[Users]\nDefaultUser={user['username']}\n",
+            )
+
+    # Keyboard settings are read by ~/.config/hypr/input.lua at session start.
+    env_path = Path(f"{MOUNT}/etc/environment")
+    env_text = env_path.read_text() if env_path.exists() else ""
+    if "KAFY_KB_LAYOUT=" not in env_text:
+        env_text += (
+            f"\nKAFY_KB_LAYOUT={cfg['keymap']}\n"
+            f"KAFY_KB_VARIANT={cfg.get('keymap_variant', '')}\n"
+        )
+        env_path.write_text(env_text)
+
+    progress(92, "Installing the bootloader")
+    install_bootloader(cfg, root_part)
+
+    progress(98, "Finishing up")
+    run(["sync"], check=False)
+    run(["umount", "-R", MOUNT], check=False)
+
+
+def install_optional(selected: list[str]) -> None:
+    groups = {group["id"]: group for group in read_optional()}
+    packages: list[str] = []
+    for group_id in selected:
+        group = groups.get(group_id)
+        if group:
+            packages.extend(group.get("packages", []))
+    if not packages:
+        return
+
+    if any(pkg.startswith("lib32-") for pkg in packages):
+        enable_multilib()
+
+    run(["arch-chroot", MOUNT, "pacman", "-Sy", "--needed", "--noconfirm", *packages])
+
+
+def post_optional(selected: list[str], username: str) -> None:
+    """Enable optional services and grant the new user access to their groups."""
+    selected = set(selected)
+    if "development" in selected:
+        run(["arch-chroot", MOUNT, "systemctl", "enable", "docker.service"], check=False)
+        run(
+            [
+                "arch-chroot",
+                MOUNT,
+                "sh",
+                "-c",
+                f"getent group docker >/dev/null || groupadd docker; "
+                f"usermod -aG docker {shlex.quote(username)}",
+            ],
+            check=False,
+        )
+    if "virtualization" in selected:
+        run(
+            ["arch-chroot", MOUNT, "systemctl", "enable", "libvirtd.service"],
+            check=False,
+        )
+        run(
+            [
+                "arch-chroot",
+                MOUNT,
+                "sh",
+                "-c",
+                f"getent group libvirt >/dev/null || groupadd libvirt; "
+                f"usermod -aG libvirt {shlex.quote(username)}",
+            ],
+            check=False,
+        )
+
+
+def enable_multilib() -> None:
+    path = f"{MOUNT}/etc/pacman.conf"
+    text = read_file(path)
+    text = re.sub(
+        r"(?m)^#\[multilib\]\s*\n#Include\s*=\s*/etc/pacman\.d/mirrorlist",
+        "[multilib]\nInclude = /etc/pacman.d/mirrorlist",
+        text,
+    )
+    write_file(path, text)
+
+
+def install_bootloader(cfg: dict, root_part: str) -> None:
+    root_uuid = subprocess.check_output(
+        ["blkid", "-s", "UUID", "-o", "value", root_part],
+        text=True,
+    ).strip()
+    if not root_uuid:
+        raise InstallError("Could not read the root filesystem UUID")
+
+    uefi = cfg["uefi"]
+    if uefi:
+        run(["arch-chroot", MOUNT, "bootctl", "--esp-path=/boot", "install"])
+        write_file(
+            f"{MOUNT}/boot/loader/loader.conf",
+            "default kafy\ntimeout 3\neditor no\n",
+        )
+        cpuinfo = read_file("/proc/cpuinfo")
+        microcode = "intel-ucode" if "GenuineIntel" in cpuinfo else "amd-ucode"
+        entry = "title Kafy OS\nlinux /vmlinuz-linux\n"
+        if os.path.exists(f"{MOUNT}/boot/{microcode}.img"):
+            entry += f"initrd /{microcode}.img\n"
+        entry += "initrd /initramfs-linux.img\n"
+        entry += f"options root=UUID={root_uuid} rw quiet loglevel=3\n"
+        write_file(f"{MOUNT}/boot/loader/entries/kafy.conf", entry)
+    else:
+        disk = cfg["disk"]
+        run(
+            [
+                "arch-chroot",
+                MOUNT,
+                "grub-install",
+                "--target=i386-pc",
+                "--rehash",
+                "--boot-directory=/boot",
+                disk,
+            ]
+        )
+        run(["arch-chroot", MOUNT, "grub-mkconfig", "-o", "/boot/grub/grub.cfg"])
+
+
+def validate(cfg: dict) -> None:
+    disk = cfg.get("disk", "")
+    if not disk.startswith("/dev/"):
+        raise InstallError("No installation disk was selected")
+    if not os.path.exists(disk):
+        raise InstallError(f"Selected disk does not exist: {disk}")
+    user = cfg.get("user") or {}
+    username = user.get("username", "")
+    if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", username):
+        raise InstallError("Invalid username")
+    if username in {"root", "liveuser"}:
+        raise InstallError("Choose a username other than root or liveuser")
+    if not user.get("password"):
+        raise InstallError("A user password is required")
+    if any(ch in user["password"] for ch in "\n\r:"):
+        raise InstallError("Password may not contain a colon or newline")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,62}", cfg.get("hostname", "")):
+        raise InstallError("Invalid hostname")
+    timezone = cfg.get("timezone", "")
+    if not timezone or not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
+        raise InstallError("Invalid timezone")
+    if not cfg.get("locale"):
+        raise InstallError("A locale is required")
+    if not cfg.get("keymap"):
+        raise InstallError("A keyboard layout is required")
+
+
+def main() -> int:
+    if os.geteuid() != 0:
+        emit({"type": "error", "message": "The installer backend must run as root."})
+        return 1
+
+    try:
+        cfg = json.load(sys.stdin)
+        validate(cfg)
+        cfg["uefi"] = os.path.isdir("/sys/firmware/efi")
+
+        progress(2, "Checking the installation media")
+        log(f"Target disk: {cfg['disk']} ({'UEFI' if cfg['uefi'] else 'BIOS'})")
+
+        root_part, _efi_part = partition(cfg["disk"], cfg["uefi"])
+        install_base()
+        configure_target(cfg, root_part)
+
+        progress(100, "Installation complete")
+        emit({"type": "done"})
+        return 0
+    except InstallError as exc:
+        emit({"type": "error", "message": str(exc)})
+        log(str(exc))
+        run(["umount", "-R", MOUNT], check=False)
+        return 1
+    except Exception as exc:  # noqa: BLE001 - report anything to the UI
+        emit({"type": "error", "message": f"Unexpected installer failure: {exc}"})
+        for line in traceback.format_exc().splitlines():
+            log(line)
+        run(["umount", "-R", MOUNT], check=False)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

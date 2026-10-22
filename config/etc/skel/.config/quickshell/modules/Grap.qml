@@ -15,8 +15,8 @@ FloatingWindow {
     property bool open: false
 
     property string query: ""
-    // scope: chips (~ | dotfiles | .config) or an @path prefix in the query:
-    // "@dotfiles foo" → ~/dotfiles, "@~/.config/hypr foo" → that dir,
+    // scope: chips (~ | Pictures | .config) or an @path prefix in the query:
+    // "@Pictures foo" → ~/Pictures, "@~/.config/hypr foo" → that dir,
     // "@/etc/foo bar" → absolute. Bare query greps the chip's dir.
     property string scopeLabel: ""
     function parseScope(q) {
@@ -33,7 +33,7 @@ FloatingWindow {
     }
     // scope chips → directory (an @path in the query always wins)
     function scopeRoot() {
-        if (scopeKey === "dotfiles") return Quickshell.env("HOME") + "/.config"
+        if (scopeKey === "pictures") return Quickshell.env("HOME") + "/Pictures"
         if (scopeKey === "config") return Quickshell.env("HOME") + "/.config"
         return Quickshell.env("HOME")
     }
@@ -63,7 +63,7 @@ FloatingWindow {
     property string queuedQuery: ""
     property double searchStart: 0
     // ── search options (chips in the toolbar) ───────────────────────
-    property string scopeKey: "home"     // home | dotfiles | config
+    property string scopeKey: "home"     // home | pictures | config
     property bool explicitScope: false   // true while the query carries an @path
     property bool caseSensitive: false   // Aa  on → rg --case-sensitive
     property bool regexMode: true        // .*  on → regex, off → --fixed-strings
@@ -463,7 +463,7 @@ FloatingWindow {
                         spacing: 2
                         Repeater {
                             model: [ { key: "home", label: "~", glyph: root.glyphs.home },
-                                     { key: "dotfiles", label: ".config", glyph: root.glyphs.folder },
+                                     { key: "pictures", label: "Pictures", glyph: root.glyphs.folder },
                                      { key: "config", label: ".config", glyph: root.glyphs.gear } ]
                             delegate: Rectangle {
                                 required property var modelData

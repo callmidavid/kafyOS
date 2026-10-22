@@ -1,0 +1,144 @@
+# Canonical package set installed on a Kafy target by the graphical installer.
+# One package per line; comments and blank lines are ignored.
+#
+# Keep this list aligned with the desktop set in the ISO profile. Live-only
+# packages (archiso, mkinitcpio-archiso, syslinux) never belong here.
+
+# Base system and boot
+base
+linux
+linux-firmware
+linux-firmware-intel
+linux-firmware-amd
+intel-ucode
+amd-ucode
+archlinux-keyring
+mkinitcpio
+systemd
+sudo
+efibootmgr
+os-prober
+grub
+
+# Storage
+btrfs-progs
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+udisks2
+gvfs
+gvfs-mtp
+gvfs-smb
+
+# Networking and Bluetooth
+networkmanager
+network-manager-applet
+nm-connection-editor
+wpa_supplicant
+wireless-regdb
+bluez
+bluez-utils
+blueman
+avahi
+
+# Audio and power
+pipewire
+pipewire-pulse
+pipewire-alsa
+gst-plugin-pipewire
+wireplumber
+alsa-utils
+sof-firmware
+pavucontrol
+power-profiles-daemon
+upower
+
+# Hyprland session and Kafy shell
+hyprland
+hyprlock
+hypridle
+hyprsunset
+quickshell
+uwsm
+sddm
+breeze
+polkit-gnome
+xdg-desktop-portal
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+qt5-wayland
+qt6-wayland
+
+# Kafy desktop applications and tools
+matugen
+awww
+swayosd
+cliphist
+wl-clipboard
+rofi
+kitty
+foot
+playerctl
+pamixer
+fd
+hyprpicker
+grim
+slurp
+wf-recorder
+brightnessctl
+nethogs
+libnotify
+thunar
+thunar-archive-plugin
+thunar-volman
+tumbler
+catfish
+file-roller
+ffmpegthumbnailer
+poppler-glib
+ffmpegthumbs
+mpv
+loupe
+zathura
+zathura-pdf-mupdf
+xdg-utils
+xdg-user-dirs
+flatpak
+
+# Shell, terminal and editors
+zsh
+starship
+lsd
+zoxide
+fzf
+cava
+btop
+fastfetch
+neovim
+git
+curl
+jq
+man-db
+man-pages
+usbutils
+pciutils
+
+# Fonts
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+ttf-liberation
+ttf-firacode-nerd
+ttf-jetbrains-mono-nerd
+ttf-iosevka-nerd
+inter-font
+
+# Browser and media
+firefox
+python
+python-pillow
+libvips
+cups
+print-manager
+reflector
