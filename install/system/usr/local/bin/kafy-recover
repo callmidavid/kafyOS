@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf '%s\n' 'Usage: kafy-recover --check'
+  printf '%s\n' 'Checks package integrity and failed services without changing the system.'
+  exit 2
+}
+
+[[ ${1:-} == --check && $# -eq 1 ]] || usage
+
+printf 'Kafy recovery check\n\n'
+printf 'Operating system: '
+. /etc/os-release
+printf '%s\n' "${PRETTY_NAME:-Unknown}"
+printf 'Kernel: '
+uname -r
+
+printf '\nFailed system services:\n'
+systemctl --failed --no-legend || true
+
+printf '\nKafy migration state:\n'
+if [[ -d /var/lib/kafy/migrations ]]; then
+  find /var/lib/kafy/migrations -maxdepth 1 -type f -name '*.complete' -printf '%f\n' | LC_ALL=C sort
+else
+  printf 'No Kafy migrations have been applied.\n'
+fi
+
+printf '\nPackage database check:\n'
+if pacman -Qk --quiet; then
+  printf 'Installed package file checks passed.\n'
+else
+  printf 'Some package file checks failed. Do not delete files manually; follow the recovery guide.\n' >&2
+  exit 1
+fi

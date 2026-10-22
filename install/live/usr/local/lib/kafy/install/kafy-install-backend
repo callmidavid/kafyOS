@@ -19,6 +19,7 @@ import shlex
 import subprocess
 import sys
 import traceback
+from collections import deque
 from pathlib import Path
 
 MOUNT = "/mnt"
@@ -55,11 +56,18 @@ def run(cmd: list[str], check: bool = True) -> int:
     except FileNotFoundError as exc:
         raise InstallError(f"Missing command: {cmd[0]}") from exc
     assert proc.stdout is not None
+    recent: deque[str] = deque(maxlen=25)
     for line in proc.stdout:
-        log(line.rstrip())
+        line = line.rstrip()
+        log(line)
+        if line:
+            recent.append(line)
     code = proc.wait()
     if check and code != 0:
-        raise InstallError(f"Command failed with exit code {code}: {shlex.join(cmd)}")
+        details = "\n".join(recent) or "No command output."
+        raise InstallError(
+            f"{details}\n\nCommand failed with exit code {code}: {shlex.join(cmd)}"
+        )
     return code
 
 
@@ -67,14 +75,20 @@ def run_input(cmd: list[str], data: str, check: bool = True) -> int:
     """Run a command with stdin, never logging the input (it may be a password)."""
     log("$ " + shlex.join(cmd))
     proc = subprocess.run(cmd, input=data, text=True, capture_output=True)
+    output: list[str] = []
     if proc.stdout:
         for line in proc.stdout.splitlines():
             log(line)
+            output.append(line)
     if proc.stderr:
         for line in proc.stderr.splitlines():
             log(line)
+            output.append(line)
     if check and proc.returncode != 0:
-        raise InstallError(f"Command failed with exit code {proc.returncode}: {shlex.join(cmd)}")
+        details = "\n".join(output[-25:]) or "No command output."
+        raise InstallError(
+            f"{details}\n\nCommand failed with exit code {proc.returncode}: {shlex.join(cmd)}"
+        )
     return proc.returncode
 
 

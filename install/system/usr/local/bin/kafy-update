@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf '%s\n' 'Usage: kafy-update --check | --apply'
+  exit 2
+}
+
+action=${1:-}
+[[ $# -eq 1 && ( $action == --check || $action == --apply ) ]] || usage
+
+if [[ $action == --check ]]; then
+  printf 'Arch package updates:\n'
+  pacman -Qu || {
+    status=$?
+    [[ $status -eq 1 ]] || exit "$status"
+    printf 'No Arch package updates are available.\n'
+  }
+  printf '\nKafy migrations waiting to run:\n'
+  if [[ -x /usr/local/bin/kafy-migrate ]]; then
+    /usr/local/bin/kafy-migrate --dry-run
+  fi
+  exit 0
+fi
+
+[[ ${EUID} -eq 0 ]] || {
+  printf 'Run kafy-update --apply with sudo.\n' >&2
+  exit 1
+}
+
+# pacman owns Arch packages; Kafy intentionally does not replace its package
+# database. Migrations only change Kafy-owned files and must be idempotent.
+pacman -Syu
+/usr/local/bin/kafy-migrate
+printf 'Kafy update completed. Reboot if the kernel, graphics stack, or systemd was updated.\n'

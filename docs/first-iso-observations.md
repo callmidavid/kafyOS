@@ -1,6 +1,22 @@
-# First ISO Observations
+# ISO Validation Observations
 
-This is a factual record from the first Kafy ISO boot, not a release note. Update it as issues are fixed and re-tested.
+This is a factual validation record, not a release note. Every entry must identify its evidence and must not turn an unrecorded claim into a release guarantee.
+
+## 2026-10-22 — release-candidate validation
+
+Evidence: maintainer-reported VM installation/reboot test and real-hardware test; the latest QEMU screenshot shows the Kafy wallpaper, native Quickshell bar, and graphical installer.
+
+### Confirmed by the maintainer
+
+- The installer completed in a VM, and the target rebooted into the installed Kafy session.
+- Login, Wi-Fi, audio, Bluetooth, suspend, display scaling, and graphics were tested.
+- The same functional areas were tested on real hardware.
+
+### Still required for a public release
+
+- Store the final ISO checksum, Kafy commit, ISO-builder commit, BIOS/UEFI result, and hardware matrix in the release record.
+- Run an automated disposable-VM acceptance path against the exact signed ISO artifact.
+- Exercise `kafy-update` and a deliberately interrupted update plus the documented recovery path in a disposable VM.
 
 ## 2026-09-25 — QEMU live-session smoke test
 

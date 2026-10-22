@@ -22,14 +22,15 @@ Kafy separates its product source from its bootable Arch image builder.
 | `default/` | Kafy-owned assets, branding, and future templates. |
 | `bin/` | User-facing Kafy commands. |
 | `install/live/` | Live-session setup and installer entry points. |
-| `install/system/` | Target payload and post-install/first-boot hooks; it is never overlaid onto the live root. |
+| `install/system/` | Target payload and post-install/first-boot hooks, including `kafy-update`, `kafy-migrate`, and `kafy-recover`; it is never overlaid onto the live root. |
+| `migrations/` | Canonical, versioned one-time fixes for installed Kafy systems. |
 | `../kafy-iso/archiso/` | ISO metadata, package list, Archiso-only live files, and boot configuration. |
 | `../kafy-iso/archiso/prepare-profile.sh` | The declared composition boundary between source and ISO. |
 | `../kafy-iso/test/` | ISO composition and boot/install acceptance tests. |
 
 ## Configuration ownership
 
-The live account and each new account receive Hyprland, Hyprpaper, Hyprlock, and Waybar defaults from `config/etc/skel`. A Kafy update must not silently overwrite an existing person's home-directory configuration. New defaults belong in `config/`; migrations and explicit reset behavior belong in `migrations/` and `bin/`.
+The live account and each new account receive Kafy Hyprland and Quickshell defaults from `config/etc/skel`. A Kafy update must not silently overwrite an existing person's home-directory configuration. New defaults belong in `config/`; migrations and explicit reset behavior belong in `migrations/` and Kafy commands.
 
 ## Build output
 
