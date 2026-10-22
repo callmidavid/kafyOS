@@ -34,6 +34,9 @@ home=$(awk -F: -v user="$user" '$1 == user { print $6; exit }' "$target/etc/pass
 
 uid_gid=$(awk -F: -v user="$user" '$1 == user { print $3 ":" $4; exit }' "$target/etc/passwd")
 
+log 'installing the Kafy release identity'
+install -Dm644 /etc/os-release "$target/etc/os-release"
+
 log 'copying Kafy system assets and commands'
 install -Dm755 /usr/local/bin/kafy-doctor "$target/usr/local/bin/kafy-doctor"
 install -Dm755 "$payload_root/usr/local/bin/kafy-first-boot" "$target/usr/local/bin/kafy-first-boot"
@@ -54,7 +57,19 @@ install -Dm644 /usr/share/fonts/TTF/Iceland-Regular.ttf "$target/usr/share/fonts
 install -d -m 0755 "$target/usr/share/icons"
 cp -a /usr/share/icons/Bibata-Modern-Ice "$target/usr/share/icons/"
 install -d -m 0755 "$target/etc/sddm.conf.d"
-printf '[Theme]\nCurrent=elarun-custom\n' > "$target/etc/sddm.conf.d/10-theme.conf"
+printf '[Theme]\nCurrent=elarun-custom\n\n[Users]\nDefaultUser=%s\n' "$user" > "$target/etc/sddm.conf.d/10-theme.conf"
+
+# Seed SDDM's last-user state so the single-user login theme opens as the
+# account created here and selects the uwsm-managed Hyprland session. Without
+# this, the greeter falls back to its placeholder username and cannot log in.
+log 'pointing SDDM at the installed account and session'
+install -d -m 0755 "$target/var/lib/sddm"
+printf '[LastUser]\nName=%s\nSession=hyprland-uwsm.desktop\n' "$user" > "$target/var/lib/sddm/state.conf"
+chmod 600 "$target/var/lib/sddm/state.conf"
+sddm_uid_gid=$(awk -F: '$1 == "sddm" { print $3 ":" $4; exit }' "$target/etc/passwd")
+if [[ -n $sddm_uid_gid ]]; then
+  chown "$sddm_uid_gid" "$target/var/lib/sddm" "$target/var/lib/sddm/state.conf"
+fi
 
 # Matugen rewrites the login palette in place (new inode), so the theme directory
 # must be owned by the desktop user; otherwise every theme change fails on the

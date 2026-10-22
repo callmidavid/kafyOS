@@ -26,6 +26,11 @@ PanelWindow {
     Colors { id: palette }
 
     NotificationCenter { id: ntfy; colors: palette }
+    Connections {
+        target: ntfy
+        // the bot is the bell now: every non-DND notification makes it alert
+        function onNotificationArrived() { bot.ping() }
+    }
 
     // ---- resident panels: every popup stays loaded, zero RAM saved but
     // zero first-paint white flash (the battery lesson — lazy Loaders
@@ -35,10 +40,9 @@ PanelWindow {
     // register the same target — see MonitorSettings lesson). Bar pills
     // call toggleX()/showX(); Hyprland binds call `ipc call <target> toggle`.
 
-    // WifiPanel (1183 lines, heaviest) — Network pill + `wifi` bind
+    // WifiPanel (1183 lines, heaviest) — `wifi` bind (SUPER+H), no bar pill
     WifiPanel { id: wifiPanel; colors: palette }
     IpcHandler { target: "wifi"; function toggle(): void { wifiPanel.open = !wifiPanel.open } }
-    function toggleWifi() { wifiPanel.open = !wifiPanel.open }
 
     // SystemMonitor (544 lines) — Memory/Cpu pills + `sysmon` bind
     SystemMonitor { id: sysPanel; colors: palette }
@@ -306,12 +310,14 @@ PanelWindow {
                     color: colors.alpha(colors.outline, 0.28)
                     Layout.alignment: Qt.AlignVCenter
                 }
-                // bell small right
-                BellButton {
+                // bot small right — replaces the notification bell; it reacts
+                // to notifications, CPU, battery, recording, music and idle
+                PixelBot {
+                    id: bot
                     colors: bar.colors
-                    historyCount: ntfy.historyCount
-                    panelOpen: ntfy.panelOpen
-                    onToggleRequested: ntfy.togglePanel()
+                    pixelScale: 2
+                    cpuUsage: cpuPill.usage
+                    helloOnWorkspace: true
                 }
             }
 
@@ -431,11 +437,7 @@ PanelWindow {
                 onToggleDndRequested: ntfy.toggleDnd()
             }
             Memory { colors: bar.colors; onOpenRequested: showSysMon() }
-            Cpu { colors: bar.colors; onOpenRequested: showSysMon() }
-            Network {
-                colors: bar.colors
-                onOpenRequested: toggleWifi()
-            }
+            Cpu { id: cpuPill; colors: bar.colors; onOpenRequested: showSysMon() }
             WatchCat {
                 colors: bar.colors
                 onOpenRequested: toggleWatchCat()

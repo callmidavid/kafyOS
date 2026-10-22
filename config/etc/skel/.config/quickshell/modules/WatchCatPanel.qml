@@ -82,7 +82,7 @@ FloatingWindow {
         if (root.dashBusy) return
         root.dashBusy = true
         var home = Quickshell.env("HOME")
-        dashProc.command = ["python3", home + "/.config/quickshell/scripts/watchcat-dash.py",
+        dashProc.command = ["python3", home + "/dotfiles/.config/quickshell/scripts/watchcat-dash.py",
             home + "/.local/share/watchcat/today.html", String(root.capMb)]
         dashProc.running = true
     }

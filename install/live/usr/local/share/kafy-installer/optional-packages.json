@@ -1,0 +1,70 @@
+[
+  {
+    "id": "development",
+    "name": "Development",
+    "description": "Compilers, containers, and common language runtimes",
+    "packages": [
+      "base-devel",
+      "docker",
+      "docker-compose",
+      "python-pip",
+      "nodejs",
+      "npm",
+      "rustup"
+    ]
+  },
+  {
+    "id": "creative",
+    "name": "Creative",
+    "description": "Image editing, illustration, recording, and 3D",
+    "packages": [
+      "gimp",
+      "krita",
+      "inkscape",
+      "obs-studio",
+      "blender",
+      "audacity"
+    ]
+  },
+  {
+    "id": "office",
+    "name": "Office",
+    "description": "Documents, spreadsheets, and mail",
+    "packages": [
+      "libreoffice-fresh",
+      "thunderbird",
+      "hunspell-en_us"
+    ]
+  },
+  {
+    "id": "virtualization",
+    "name": "Virtualization",
+    "description": "Run virtual machines with QEMU and virt-manager",
+    "packages": [
+      "qemu-full",
+      "virt-manager",
+      "libvirt",
+      "edk2-ovmf",
+      "dnsmasq",
+      "iptables-nft",
+      "swtpm"
+    ]
+  },
+  {
+    "id": "gaming",
+    "name": "Gaming",
+    "description": "Steam, Proton tooling, and 32-bit graphics drivers (enables multilib)",
+    "packages": [
+      "steam",
+      "gamemode",
+      "mangohud",
+      "vulkan-tools",
+      "lib32-mesa",
+      "lib32-vulkan-radeon",
+      "lib32-vulkan-intel",
+      "wine",
+      "winetricks",
+      "gamescope"
+    ]
+  }
+]

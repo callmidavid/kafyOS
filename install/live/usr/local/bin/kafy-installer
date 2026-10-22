@@ -1,55 +1,825 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+"""Kafy OS graphical installer (GTK4 + libadwaita).
 
-target=/mnt/archinstall
+The window runs as the live user. It collects the disk, account, locale, and
+optional software, then hands a JSON job to the root backend over stdin. The
+backend streams JSON progress lines, which drive the ring and the log.
+"""
 
-die() {
-  printf 'Kafy installer: %s\n' "$*" >&2
-  exit 1
-}
+from __future__ import annotations
 
-require_root() {
-  [[ ${EUID} -eq 0 ]] || die 'run this command as root'
-}
+import json
+import math
+import os
+import re
+import subprocess
+import sys
+import threading
+import zoneinfo
 
-select_user() {
-  local users=()
-  local account
+import gi
 
-  while IFS=: read -r account _ uid _ _ home _; do
-    [[ $uid -ge 1000 && $uid -lt 65534 && $home == /home/* ]] || continue
-    users+=("$account")
-  done < "$target/etc/passwd"
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
 
-  ((${#users[@]})) || die "no regular user was found in $target; create one in Archinstall first"
+from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
-  if ((${#users[@]} == 1)); then
-    printf '%s\n' "${users[0]}"
-    return
-  fi
+APP_ID = "org.kafy.Installer"
+BACKEND = "/usr/local/lib/kafy/install/kafy-install-backend"
+PAYLOAD = "/usr/local/share/kafy-installer"
+PAGE_INDEX = {"welcome": 0, "disk": 1, "user": 2, "packages": 3, "install": 4}
 
-  if command -v gum >/dev/null 2>&1; then
-    printf '%s\n' "${users[@]}" | gum choose --header 'Select the Kafy desktop user:'
-  else
-    printf 'Multiple regular users were created. Re-run with KAFY_USER=<username>.\n' >&2
-    return 1
-  fi
-}
+LOCALES = [
+    ("English (United States)", "en_US.UTF-8"),
+    ("English (United Kingdom)", "en_GB.UTF-8"),
+    ("Deutsch", "de_DE.UTF-8"),
+    ("Français", "fr_FR.UTF-8"),
+    ("Español", "es_ES.UTF-8"),
+    ("Italiano", "it_IT.UTF-8"),
+    ("Português (Brasil)", "pt_BR.UTF-8"),
+    ("Русский", "ru_RU.UTF-8"),
+    ("日本語", "ja_JP.UTF-8"),
+    ("العربية", "ar_EG.UTF-8"),
+]
 
-require_root
-command -v archinstall >/dev/null 2>&1 || die 'archinstall is not available in this live image'
+KEYMAPS = [
+    ("English (US)", "us", "us", ""),
+    ("English (UK)", "gb", "uk", ""),
+    ("German", "de", "de", ""),
+    ("French", "fr", "fr", ""),
+    ("Spanish", "es", "es", ""),
+    ("Italian", "it", "it", ""),
+    ("Portuguese (Brazil)", "br", "br-abnt2", ""),
+    ("Russian", "ru", "ru", ""),
+    ("Japanese", "jp", "jp106", ""),
+]
 
-printf '%s\n\n' 'Kafy uses Archinstall for disk layout and base-system installation.'
-printf '%s\n' 'In Archinstall, create a regular sudo user and select the desktop packages you need.'
-printf '%s\n\n' 'After it finishes, Kafy will safely apply its defaults to the installed target.'
+CSS = b"""
+window { font-family: "Inter", "Cantarell", sans-serif; }
+.hero-title { font-size: 32px; font-weight: 800; }
+.hero-sub { font-size: 14px; }
+.install-title { font-size: 20px; font-weight: 700; }
+.install-percent { font-size: 32px; font-weight: 700; }
+.step-dots { font-size: 14px; }
+.disk-size { font-feature-settings: "tnum"; }
+"""
 
-archinstall
 
-[[ -r "$target/etc/passwd" ]] || die "Archinstall did not leave an installed target at $target"
+def human_size(num: int | float) -> str:
+    value = float(num or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB", "PB"):
+        if value < 1000 or unit == "PB":
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1000
+    return f"{value:.1f} PB"
 
-user=${KAFY_USER:-}
-if [[ -z $user ]]; then
-  user=$(select_user) || die 'could not determine the Kafy desktop user'
-fi
 
-exec /usr/local/bin/kafy-install-target --target "$target" --user "$user"
+def live_disk() -> str | None:
+    try:
+        source = subprocess.check_output(
+            ["findmnt", "-no", "SOURCE", "/run/archiso/bootmnt"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        if source:
+            parent = subprocess.check_output(
+                ["lsblk", "-no", "PKNAME", source],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            if parent:
+                return f"/dev/{parent}"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return None
+
+
+def list_disks() -> list[dict]:
+    out = subprocess.check_output(
+        ["lsblk", "-J", "-b", "-o", "NAME,MODEL,SIZE,TYPE,TRAN,RM,RO,MOUNTPOINTS"],
+        text=True,
+    )
+    data = json.loads(out)
+    excluded = live_disk()
+    disks: list[dict] = []
+    for device in data.get("blockdevices", []):
+        if device.get("type") != "disk":
+            continue
+        name = device.get("name", "")
+        if name.startswith(("zram", "loop", "sr", "fd")):
+            continue
+        if device.get("ro"):
+            continue
+        path = f"/dev/{name}"
+        if excluded and path == excluded:
+            continue
+        size = int(device.get("size") or 0)
+        if size <= 0:
+            continue
+        disks.append(
+            {
+                "path": path,
+                "model": (device.get("model") or "").strip() or name,
+                "size": size,
+                "transport": (device.get("tran") or "").strip(),
+                "removable": bool(device.get("rm")),
+            }
+        )
+    return sorted(disks, key=lambda d: d["path"])
+
+
+def default_timezone() -> str:
+    try:
+        zone = subprocess.check_output(
+            ["timedatectl", "show", "-p", "Timezone", "--value"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        if zone and os.path.exists(f"/usr/share/zoneinfo/{zone}"):
+            return zone
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return "UTC"
+
+
+class RingProgress(Gtk.DrawingArea):
+    def __init__(self) -> None:
+        super().__init__()
+        self.percent = 0.0
+        self.set_content_width(200)
+        self.set_content_height(200)
+        self.set_draw_func(self._draw)
+
+    def set_percent(self, percent: float) -> None:
+        self.percent = max(0.0, min(100.0, percent))
+        self.queue_draw()
+
+    def _draw(self, _area, cr, width: int, height: int) -> None:
+        cx, cy = width / 2, height / 2
+        radius = min(width, height) / 2 - 14
+        cr.set_line_width(10)
+        cr.set_source_rgba(0, 0, 0, 0.08)
+        cr.arc(cx, cy, radius, 0, 2 * math.pi)
+        cr.stroke()
+        if self.percent <= 0:
+            return
+        cr.set_source_rgb(0.208, 0.518, 0.894)
+        cr.set_line_cap(1)  # CAIRO_LINE_CAP_ROUND
+        cr.arc(
+            cx,
+            cy,
+            radius,
+            -math.pi / 2,
+            -math.pi / 2 + 2 * math.pi * (self.percent / 100.0),
+        )
+        cr.stroke()
+
+
+class InstallerWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.set_title("Install Kafy OS")
+        self.set_default_size(980, 720)
+        self.set_size_request(840, 620)
+
+        self.selected_disk: str | None = None
+        self.disk_rows: list[Adw.ActionRow] = []
+        self.disk_checks: list[Gtk.CheckButton] = []
+        self.optional_rows: dict[str, Adw.SwitchRow] = {}
+        self.error_message: str | None = None
+        self.target_percent = 0.0
+        self.display_percent = 0.0
+        self.username_autofilled = True
+        self._setting_username = False
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(180)
+
+        self._build_footer()
+        self._build_welcome()
+        self._build_disk()
+        self._build_user()
+        self._build_packages()
+        self._build_install()
+        self._build_done()
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        title = Gtk.Label(label="Install Kafy OS")
+        title.add_css_class("title")
+        header.set_title_widget(title)
+        toolbar.add_top_bar(header)
+        toolbar.set_content(self.stack)
+        toolbar.add_bottom_bar(self.footer)
+        self.set_content(toolbar)
+        self.connect("close-request", self._on_close_request)
+
+        self.refresh_disks()
+        self.go_to("welcome")
+        GLib.timeout_add(40, self._animate)
+
+    # ---- chrome ---------------------------------------------------------
+
+    def _build_footer(self) -> None:
+        self.footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.footer.set_margin_top(14)
+        self.footer.set_margin_bottom(14)
+        self.footer.set_margin_start(20)
+        self.footer.set_margin_end(20)
+
+        self.back_button = Gtk.Button(label="Back")
+        self.back_button.connect("clicked", lambda _b: self.go_back())
+
+        self.dots_label = Gtk.Label()
+        self.dots_label.add_css_class("step-dots")
+        self.dots_label.set_hexpand(True)
+        self.dots_label.set_halign(Gtk.Align.CENTER)
+
+        self.next_button = Gtk.Button(label="Next")
+        self.next_button.add_css_class("suggested-action")
+        self.next_button.connect("clicked", lambda _b: self.go_next())
+
+        self.footer.append(self.back_button)
+        self.footer.append(self.dots_label)
+        self.footer.append(self.next_button)
+
+    def _dots(self, active: int) -> str:
+        parts = []
+        for index in range(5):
+            colour = "#3584e4" if index == active else "#c0bfbc"
+            parts.append(f'<span foreground="{colour}">●</span>')
+        return "   ".join(parts)
+
+    def go_to(self, page: str) -> None:
+        self.stack.set_visible_child_name(page)
+        self.footer.set_visible(page not in ("install", "done"))
+        self.back_button.set_visible(page not in ("welcome", "install", "done"))
+        self.next_button.set_visible(page not in ("install", "done"))
+        if page in PAGE_INDEX:
+            self.dots_label.set_markup(self._dots(PAGE_INDEX[page]))
+        if page == "welcome":
+            self.next_button.set_label("Get started")
+            self.next_button.set_sensitive(True)
+        elif page == "packages":
+            self.next_button.set_label("Install")
+            self.next_button.set_sensitive(True)
+        elif page == "disk":
+            self.next_button.set_label("Next")
+            self.next_button.set_sensitive(self.selected_disk is not None)
+        elif page == "user":
+            self.next_button.set_label("Next")
+            self.next_button.set_sensitive(True)
+
+    def go_back(self) -> None:
+        current = self.stack.get_visible_child_name()
+        previous = {
+            "disk": "welcome",
+            "user": "disk",
+            "packages": "user",
+        }.get(current)
+        if previous:
+            self.go_to(previous)
+
+    def go_next(self) -> None:
+        current = self.stack.get_visible_child_name()
+        if current == "welcome":
+            self.go_to("disk")
+        elif current == "disk":
+            if not self.selected_disk:
+                self.show_message("Choose a disk", "Select the disk Kafy should be installed on.")
+                return
+            self.go_to("user")
+        elif current == "user":
+            problem = self.validate_user()
+            if problem:
+                self.show_message("Check your details", problem)
+                return
+            self.go_to("packages")
+        elif current == "packages":
+            self.start_install()
+
+    def show_message(self, heading: str, body: str) -> None:
+        dialog = Adw.MessageDialog(transient_for=self, heading=heading, body=body)
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.connect("response", lambda d, _r: d.close())
+        dialog.present()
+
+    def _on_close_request(self, *_args) -> bool:
+        if self.stack.get_visible_child_name() == "install" and not self.error_message:
+            self.show_message(
+                "Installation in progress",
+                "Wait for the installation to finish before closing the installer.",
+            )
+            return True
+        return False
+
+    # ---- welcome --------------------------------------------------------
+
+    def _build_welcome(self) -> None:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+        box.set_margin_top(48)
+        box.set_margin_bottom(48)
+        box.set_margin_start(36)
+        box.set_margin_end(36)
+
+        icon = Gtk.Image.new_from_icon_name("system-software-install")
+        icon.set_pixel_size(96)
+        box.append(icon)
+
+        title = Gtk.Label(label="Welcome to Kafy OS")
+        title.add_css_class("hero-title")
+        title.set_wrap(True)
+        title.set_justify(Gtk.Justification.CENTER)
+        box.append(title)
+
+        subtitle = Gtk.Label(
+            label=(
+                "A focused Arch desktop with a themed Hyprland session. "
+                "This guided installer sets up the system, creates your account, "
+                "and applies Kafy's defaults."
+            )
+        )
+        subtitle.add_css_class("hero-sub")
+        subtitle.add_css_class("dim-label")
+        subtitle.set_wrap(True)
+        subtitle.set_justify(Gtk.Justification.CENTER)
+        subtitle.set_max_width_chars(58)
+        box.append(subtitle)
+
+        languages = Gtk.StringList.new([label for label, _locale in LOCALES])
+        self.locale_row = Adw.ComboRow(title="Language")
+        self.locale_row.set_model(languages)
+        self.locale_row.set_selected(0)
+        language_group = Adw.PreferencesGroup()
+        language_group.add(self.locale_row)
+        wrapper = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        wrapper.set_margin_top(18)
+        wrapper.append(language_group)
+        box.append(wrapper)
+
+        note = Gtk.Label(label="The selected disk will be erased.")
+        note.add_css_class("dim-label")
+        box.append(note)
+
+        clamp = Adw.Clamp(maximum_size=680, tightening_threshold=520)
+        clamp.set_child(box)
+        self.stack.add_named(clamp, "welcome")
+
+    # ---- disk -----------------------------------------------------------
+
+    def _build_disk(self) -> None:
+        self.disk_group = Adw.PreferencesGroup(
+            title="Where should Kafy be installed?",
+            description="Choose the disk to erase and install Kafy on.",
+        )
+        refresh = Gtk.Button(icon_name="view-refresh-symbolic")
+        refresh.set_tooltip_text("Rescan disks")
+        refresh.add_css_class("flat")
+        refresh.connect("clicked", lambda _b: self.refresh_disks())
+        self.disk_group.set_header_suffix(refresh)
+
+        self.disk_empty = Adw.ActionRow(
+            title="No installable disks found",
+            subtitle="Attach a target disk, then rescan.",
+        )
+        self.disk_empty.set_activatable(False)
+        self.disk_group.add(self.disk_empty)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        content.set_margin_top(24)
+        content.set_margin_bottom(24)
+        content.set_margin_start(18)
+        content.set_margin_end(18)
+        content.append(self.disk_group)
+
+        warning = Gtk.Label(
+            label="All data on the selected disk will be permanently erased."
+        )
+        warning.add_css_class("error")
+        warning.set_wrap(True)
+        warning.set_xalign(0)
+        content.append(warning)
+
+        clamp = Adw.Clamp(maximum_size=820, tightening_threshold=600)
+        clamp.set_child(content)
+        page = Gtk.ScrolledWindow()
+        page.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        page.set_child(clamp)
+        self.stack.add_named(page, "disk")
+
+    def refresh_disks(self) -> None:
+        for row in self.disk_rows:
+            self.disk_group.remove(row)
+        self.disk_rows.clear()
+        self.disk_checks.clear()
+        self.selected_disk = None
+
+        try:
+            disks = list_disks()
+        except Exception as exc:  # noqa: BLE001 - surface probing failures in the UI
+            disks = []
+            self.disk_empty.set_subtitle(f"Could not read disks: {exc}")
+
+        if not disks:
+            self.disk_empty.set_visible(True)
+        else:
+            self.disk_empty.set_visible(False)
+
+        first_check: Gtk.CheckButton | None = None
+        for disk in disks:
+            subtitle = human_size(disk["size"])
+            if disk["transport"]:
+                subtitle += f" · {disk['transport'].upper()}"
+            if disk["removable"]:
+                subtitle += " · removable"
+            row = Adw.ActionRow(title=disk["path"], subtitle=f"{disk['model']} · {subtitle}")
+            check = Gtk.CheckButton()
+            check.set_valign(Gtk.Align.CENTER)
+            if first_check is None:
+                first_check = check
+            else:
+                check.set_group(first_check)
+            check.connect("toggled", self.on_disk_toggled, disk["path"])
+            row.add_suffix(check)
+            row.set_activatable_widget(check)
+            self.disk_group.add(row)
+            self.disk_rows.append(row)
+            self.disk_checks.append(check)
+
+        if self.stack.get_visible_child_name() == "disk":
+            self.next_button.set_sensitive(self.selected_disk is not None)
+
+    def on_disk_toggled(self, check: Gtk.CheckButton, path: str) -> None:
+        if check.get_active():
+            self.selected_disk = path
+        elif self.selected_disk == path:
+            self.selected_disk = None
+        if self.stack.get_visible_child_name() == "disk":
+            self.next_button.set_sensitive(self.selected_disk is not None)
+
+    # ---- user -----------------------------------------------------------
+
+    def _build_user(self) -> None:
+        page = Adw.PreferencesPage()
+
+        account = Adw.PreferencesGroup(title="Your account")
+        self.fullname_row = Adw.EntryRow(title="Full name")
+        self.fullname_row.connect("changed", lambda _r: self._autofill_username())
+        account.add(self.fullname_row)
+
+        self.username_row = Adw.EntryRow(title="Username")
+        self.username_row.connect("changed", self._on_username_changed)
+        account.add(self.username_row)
+
+        self.password_row = Adw.PasswordEntryRow(title="Password")
+        account.add(self.password_row)
+
+        self.confirm_row = Adw.PasswordEntryRow(title="Confirm password")
+        account.add(self.confirm_row)
+        page.add(account)
+
+        system = Adw.PreferencesGroup(title="System")
+        self.hostname_row = Adw.EntryRow(title="Hostname")
+        self.hostname_row.set_text("kafy")
+        system.add(self.hostname_row)
+
+        tz_row = Adw.ActionRow(title="Timezone")
+        self.timezone_entry = Gtk.Entry()
+        self.timezone_entry.set_hexpand(True)
+        self.timezone_entry.set_width_chars(24)
+        self.timezone_entry.set_text(default_timezone())
+        self.timezone_entry.set_placeholder_text("e.g. Europe/London")
+        zones = sorted(
+            z
+            for z in zoneinfo.available_timezones()
+            if not z.startswith(("posix/", "right/", "SystemV/"))
+        )
+        store = Gtk.ListStore(str)
+        for zone in zones:
+            store.append([zone])
+        completion = Gtk.EntryCompletion()
+        completion.set_model(store)
+        completion.set_text_column(0)
+        completion.set_minimum_key_length(1)
+        completion.set_inline_completion(True)
+        completion.set_popup_completion(True)
+        self.timezone_entry.set_completion(completion)
+        tz_row.add_suffix(self.timezone_entry)
+        system.add(tz_row)
+
+        self.keymap_row = Adw.ComboRow(title="Keyboard layout")
+        self.keymap_row.set_model(Gtk.StringList.new([k[0] for k in KEYMAPS]))
+        self.keymap_row.set_selected(0)
+        system.add(self.keymap_row)
+        page.add(system)
+
+        self.stack.add_named(page, "user")
+
+    def _autofill_username(self) -> None:
+        if not self.username_autofilled:
+            return
+        text = self.fullname_row.get_text().strip().lower()
+        text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+        self._setting_username = True
+        self.username_row.set_text(text[:32])
+        self._setting_username = False
+
+    def _on_username_changed(self, _row) -> None:
+        if not self._setting_username:
+            self.username_autofilled = False
+
+    def validate_user(self) -> str | None:
+        username = self.username_row.get_text().strip()
+        if not username:
+            return "Enter a username."
+        if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", username):
+            return "Use lowercase letters, digits, dashes, or underscores; start with a letter or underscore."
+        if username in ("root", "liveuser"):
+            return "Choose a username other than root or liveuser."
+        password = self.password_row.get_text()
+        if not password:
+            return "Enter a password."
+        if password != self.confirm_row.get_text():
+            return "The passwords do not match."
+        if any(ch in password for ch in "\n\r:"):
+            return "The password may not contain a colon or newline."
+        hostname = self.hostname_row.get_text().strip()
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,62}", hostname):
+            return "Enter a valid hostname (letters, digits, and dashes)."
+        timezone = self.timezone_entry.get_text().strip()
+        if not timezone or not os.path.exists(f"/usr/share/zoneinfo/{timezone}"):
+            return "Enter a valid timezone, for example Europe/London."
+        return None
+
+    # ---- packages -------------------------------------------------------
+
+    def _build_packages(self) -> None:
+        page = Adw.PreferencesPage()
+        core = Adw.PreferencesGroup(title="Desktop")
+        core_row = Adw.ActionRow(
+            title="Kafy Desktop",
+            subtitle="Hyprland, the Kafy shell, apps, fonts, and system tools",
+        )
+        tick = Gtk.Image.new_from_icon_name("object-select-symbolic")
+        tick.set_valign(Gtk.Align.CENTER)
+        core_row.add_suffix(tick)
+        core_row.set_activatable(False)
+        core.add(core_row)
+        page.add(core)
+
+        optional = Adw.PreferencesGroup(
+            title="Optional software",
+            description="Additional package groups installed from the Arch repositories.",
+        )
+        try:
+            groups = json.load(open(f"{PAYLOAD}/optional-packages.json", encoding="utf-8"))
+        except (OSError, ValueError):
+            groups = []
+        for group in groups:
+            row = Adw.SwitchRow(title=group["name"], subtitle=group.get("description", ""))
+            self.optional_rows[group["id"]] = row
+            optional.add(row)
+        page.add(optional)
+
+        self.stack.add_named(page, "packages")
+
+    # ---- install --------------------------------------------------------
+
+    def _build_install(self) -> None:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+        box.set_margin_top(36)
+        box.set_margin_bottom(36)
+        box.set_margin_start(36)
+        box.set_margin_end(36)
+
+        self.ring = RingProgress()
+        self.percent_label = Gtk.Label(label="0%")
+        self.percent_label.add_css_class("install-percent")
+        self.percent_label.set_halign(Gtk.Align.CENTER)
+        self.percent_label.set_valign(Gtk.Align.CENTER)
+        overlay = Gtk.Overlay()
+        overlay.set_child(self.ring)
+        overlay.add_overlay(self.percent_label)
+        overlay.set_size_request(210, 210)
+        box.append(overlay)
+
+        title = Gtk.Label(label="Installing Kafy OS")
+        title.add_css_class("install-title")
+        box.append(title)
+
+        self.status_label = Gtk.Label(label="Preparing…")
+        self.status_label.add_css_class("dim-label")
+        self.status_label.set_wrap(True)
+        self.status_label.set_justify(Gtk.Justification.CENTER)
+        self.status_label.set_max_width_chars(56)
+        box.append(self.status_label)
+
+        self.log_buffer = Gtk.TextBuffer()
+        log_view = Gtk.TextView(buffer=self.log_buffer)
+        log_view.set_editable(False)
+        log_view.set_cursor_visible(False)
+        log_view.set_monospace(True)
+        log_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_child(log_view)
+        scroller.set_min_content_height(180)
+        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        expander = Gtk.Expander(label="Show details")
+        expander.set_child(scroller)
+        expander.set_margin_top(8)
+        box.append(expander)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=560)
+        clamp.set_child(box)
+        self.stack.add_named(clamp, "install")
+
+    def _animate(self) -> bool:
+        if abs(self.target_percent - self.display_percent) > 0.2:
+            self.display_percent += (self.target_percent - self.display_percent) * 0.14
+            if self.display_percent < self.target_percent - 0.2:
+                self.display_percent += 0.12
+        else:
+            self.display_percent = self.target_percent
+        self.ring.set_percent(self.display_percent)
+        self.percent_label.set_text(f"{int(round(self.display_percent))}%")
+        return True
+
+    # ---- done -----------------------------------------------------------
+
+    def _build_done(self) -> None:
+        page = Adw.StatusPage()
+        page.set_icon_name("object-select-symbolic")
+        page.set_title("Kafy OS is ready")
+        page.set_description("Remove the installation media, then restart into your new system.")
+        button = Gtk.Button(label="Restart now")
+        button.add_css_class("suggested-action")
+        button.set_halign(Gtk.Align.CENTER)
+        button.connect("clicked", lambda _b: self.restart())
+        page.set_child(button)
+        self.stack.add_named(page, "done")
+
+    def restart(self) -> None:
+        try:
+            subprocess.Popen(["sudo", "-n", "systemctl", "reboot"])
+        except Exception as exc:  # noqa: BLE001
+            self.show_message("Restart failed", f"Run `systemctl reboot` manually.\n\n{exc}")
+
+    # ---- backend --------------------------------------------------------
+
+    def build_config(self) -> dict:
+        locale_label, locale = LOCALES[self.locale_row.get_selected()]
+        keymap_label, keymap, vconsole, variant = KEYMAPS[self.keymap_row.get_selected()]
+        del locale_label, keymap_label
+        return {
+            "disk": self.selected_disk,
+            "uefi": os.path.isdir("/sys/firmware/efi"),
+            "locale": locale,
+            "timezone": self.timezone_entry.get_text().strip(),
+            "keymap": keymap,
+            "keymap_variant": variant,
+            "vconsole_keymap": vconsole,
+            "hostname": self.hostname_row.get_text().strip(),
+            "user": {
+                "username": self.username_row.get_text().strip(),
+                "fullname": self.fullname_row.get_text().strip(),
+                "password": self.password_row.get_text(),
+            },
+            "optional": [key for key, row in self.optional_rows.items() if row.get_active()],
+        }
+
+    def start_install(self) -> None:
+        problem = self.validate_user()
+        if problem:
+            self.show_message("Check your details", problem)
+            return
+        if not self.selected_disk:
+            self.show_message("Choose a disk", "Select the disk Kafy should be installed on.")
+            return
+
+        self.error_message = None
+        self.target_percent = 0.0
+        self.display_percent = 0.0
+        self.ring.set_percent(0)
+        self.percent_label.set_text("0%")
+        self.log_buffer.set_text("")
+        self.status_label.set_label("Starting…")
+        self.go_to("install")
+
+        config = self.build_config()
+        threading.Thread(target=self._run_backend, args=(config,), daemon=True).start()
+
+    def _run_backend(self, config: dict) -> None:
+        try:
+            proc = subprocess.Popen(
+                ["sudo", "-n", BACKEND],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            assert proc.stdin is not None and proc.stdout is not None
+            try:
+                proc.stdin.write(json.dumps(config))
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    message = json.loads(line)
+                except json.JSONDecodeError:
+                    GLib.idle_add(self.append_log, line)
+                    continue
+                GLib.idle_add(self.handle_message, message)
+            rc = proc.wait()
+            GLib.idle_add(self.install_finished, rc)
+        except Exception as exc:  # noqa: BLE001
+            GLib.idle_add(self.install_failed, str(exc))
+
+    def handle_message(self, message: dict) -> None:
+        kind = message.get("type")
+        if kind == "log":
+            self.append_log(message.get("line", ""))
+        elif kind == "progress":
+            percent = int(message.get("percent", 0))
+            self.target_percent = max(self.target_percent, percent)
+            self.status_label.set_label(message.get("message", ""))
+        elif kind == "error":
+            self.error_message = message.get("message", "Unknown error")
+            self.append_log(f"ERROR: {self.error_message}")
+        elif kind == "done":
+            self.target_percent = 100
+            self.status_label.set_label("Installation complete")
+
+    def append_log(self, line: str) -> None:
+        if not line:
+            return
+        end = self.log_buffer.get_end_iter()
+        self.log_buffer.insert(end, line + "\n")
+        # Keep the buffer bounded; the full output is not needed forever.
+        if self.log_buffer.get_line_count() > 5000:
+            start = self.log_buffer.get_start_iter()
+            cut = self.log_buffer.get_iter_at_line(1000)
+            self.log_buffer.delete(start, cut)
+
+    def install_finished(self, rc: int) -> None:
+        if rc == 0 and not self.error_message:
+            self.target_percent = 100
+            self.status_label.set_label("Installation complete")
+            GLib.timeout_add(800, self._finish)
+        else:
+            message = self.error_message or (
+                "The installer backend exited unexpectedly. See the details log."
+            )
+            self.status_label.set_label("Installation failed")
+            self.show_message("Installation failed", message)
+
+    def install_failed(self, message: str) -> None:
+        self.status_label.set_label("Installation failed")
+        self.append_log(f"ERROR: {message}")
+        self.show_message("Installation failed", message)
+
+    def _finish(self) -> bool:
+        self.go_to("done")
+        return False
+
+
+class KafyInstaller(Adw.Application):
+    def __init__(self) -> None:
+        super().__init__(application_id=APP_ID, flags=0)
+
+    def do_activate(self) -> None:
+        window = self.props.active_window
+        if window is None:
+            window = InstallerWindow(application=self)
+        window.present()
+
+
+def main() -> int:
+    GLib.set_application_name("Kafy Installer")
+    GLib.set_prgname("kafy-installer")
+    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+
+    provider = Gtk.CssProvider()
+    provider.load_from_data(CSS)
+    display = Gdk.Display.get_default()
+    if display is not None:
+        Gtk.StyleContext.add_provider_for_display(
+            display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    app = KafyInstaller()
+    return app.run(sys.argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

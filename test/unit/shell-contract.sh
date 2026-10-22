@@ -17,8 +17,14 @@ rg -Fqx 'import Quickshell' "$shell_dir/shell.qml"
 rg -Fq 'ShellRoot {' "$shell_dir/shell.qml"
 rg -Fq 'FileView' "$shell_dir/components/Colors.qml"
 
-# Hyprland must launch the shell with the canonical config path.
+# Hyprland must launch the shell with the canonical config path. The Lua config
+# is primary; keep the hyprlang fallback in sync.
+autostart_lua="$project_dir/config/etc/skel/.config/hypr/autostart.lua"
 rg -Fqx 'exec-once = quickshell -p ~/.config/quickshell' "$autostart"
+rg -Fq 'quickshell -p ~/.config/quickshell' "$autostart_lua"
+
+# The live ISO welcome/installer runs from the same startup hook.
+rg -Fq '/usr/local/bin/kafy-welcome' "$autostart_lua"
 
 # The previous Kafy-owned shell must be gone.
 [[ ! -e "$project_dir/bin/kafy-shell" ]] || {
