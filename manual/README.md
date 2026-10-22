@@ -9,5 +9,6 @@ Kafy is currently an early live ISO. Its Hyprland desktop, networking, audio, ap
 1. [Welcome to Kafy](01-welcome-to-kafy.md)
 2. [Trying and Installing Kafy](02-trying-and-installing.md)
 3. [The Kafy Desktop](03-the-kafy-desktop.md)
+6. [Updates and Recovery](06-updates-and-recovery.md)
 4. [Keyboard Shortcuts](04-keyboard-shortcuts.md)
 5. [Troubleshooting](05-troubleshooting.md)

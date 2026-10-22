@@ -2,7 +2,7 @@
 
 ## Try the live session
 
-Write the Kafy ISO to a USB drive with a trusted image writer, boot the computer from that USB drive, and choose **Kafy OS** from the boot menu. The live image signs in automatically as `liveuser` and starts the Kafy desktop.
+Write the Kafy ISO to a USB drive with a trusted image writer, boot the computer from that USB drive, and choose **Kafy OS** from the boot menu. The live image reaches the Kafy SDDM presentation, signs in automatically as `liveuser`, and starts the Kafy desktop. The graphical installer opens after the desktop settles; close it if you only want to try the live session.
 
 Use the live session to verify Wi-Fi, audio, display scaling, sleep/wake, Bluetooth, and graphics before considering installation.
 

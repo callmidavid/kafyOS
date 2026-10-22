@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly migration_dir=/usr/lib/kafy/migrations
+readonly state_dir=/var/lib/kafy/migrations
+
+usage() {
+  printf 'Usage: kafy-migrate [--dry-run]\n' >&2
+  exit 2
+}
+
+dry_run=false
+while (($#)); do
+  case "$1" in
+    --dry-run) dry_run=true ;;
+    -h|--help) usage ;;
+    *) usage ;;
+  esac
+  shift
+done
+
+if ! $dry_run && [[ ${EUID} -ne 0 ]]; then
+  printf 'Run kafy-migrate with sudo.\n' >&2
+  exit 1
+fi
+
+[[ -d $migration_dir ]] || exit 0
+mkdir -p "$state_dir"
+
+mapfile -t migrations < <(find "$migration_dir" -maxdepth 1 -type f -name '[0-9][0-9][0-9]-*.sh' -printf '%f\n' | LC_ALL=C sort)
+
+for migration in "${migrations[@]}"; do
+  id=${migration%.sh}
+  source="$migration_dir/$migration"
+  complete="$state_dir/$id.complete"
+
+  [[ -e $complete ]] && continue
+
+  if [[ ! -x $source ]]; then
+    printf 'Migration is not executable: %s\n' "$source" >&2
+    exit 1
+  fi
+
+  if $dry_run; then
+    printf 'Would run migration: %s\n' "$id"
+    continue
+  fi
+
+  printf 'Running Kafy migration: %s\n' "$id"
+  KAFY_MIGRATION_ID="$id" KAFY_MIGRATION_STATE_DIR="$state_dir" "$source"
+  tempfile=$(mktemp "$state_dir/.${id}.XXXXXX")
+  printf 'completed=%s\n' "$(date --iso-8601=seconds)" >"$tempfile"
+  mv -f "$tempfile" "$complete"
+done

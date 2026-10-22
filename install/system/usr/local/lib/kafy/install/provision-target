@@ -37,9 +37,17 @@ uid_gid=$(awk -F: -v user="$user" '$1 == user { print $3 ":" $4; exit }' "$targe
 log 'installing the Kafy release identity'
 install -Dm644 /etc/os-release "$target/etc/os-release"
 
+# pacman ships an all-commented mirrorlist. Seed the target with the active list
+# the installer used so the first `pacman -Syu` works without extra setup.
+log 'seeding the installed pacman mirrorlist'
+install -Dm644 /etc/pacman.d/mirrorlist "$target/etc/pacman.d/mirrorlist"
+
 log 'copying Kafy system assets and commands'
 install -Dm755 /usr/local/bin/kafy-doctor "$target/usr/local/bin/kafy-doctor"
 install -Dm755 "$payload_root/usr/local/bin/kafy-first-boot" "$target/usr/local/bin/kafy-first-boot"
+install -Dm755 "$payload_root/usr/local/bin/kafy-migrate" "$target/usr/local/bin/kafy-migrate"
+install -Dm755 "$payload_root/usr/local/bin/kafy-recover" "$target/usr/local/bin/kafy-recover"
+install -Dm755 "$payload_root/usr/local/bin/kafy-update" "$target/usr/local/bin/kafy-update"
 install -Dm644 "$payload_root/etc/systemd/user/kafy-first-boot.service" "$target/etc/systemd/user/kafy-first-boot.service"
 
 install -d -m 0755 "$target/etc/skel"
@@ -48,6 +56,13 @@ install -d -m 0755 "$target/usr/share"
 cp -a /usr/share/kafy "$target/usr/share/"
 install -d -m 0755 "$target/usr/share/wallpapers"
 cp -a /usr/share/wallpapers/kafy "$target/usr/share/wallpapers/"
+install -d -m 0755 "$target/usr/lib/kafy"
+cp -a "$payload_root/usr/local/lib/kafy/release" "$target/usr/lib/kafy/"
+
+if [[ -d /usr/local/share/kafy-installer/migrations ]]; then
+  install -d -m 0755 "$target/usr/lib/kafy/migrations"
+  cp -a /usr/local/share/kafy-installer/migrations/. "$target/usr/lib/kafy/migrations/"
+fi
 
 log 'copying Kafy login theme, fonts, and cursor base'
 install -d -m 0755 "$target/usr/share/sddm/themes"
